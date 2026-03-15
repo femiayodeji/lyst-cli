@@ -1,3 +1,5 @@
+import sys
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -131,6 +133,10 @@ def chat():
             console.print(f"[dim]LLM correction attempt:[/dim]\n{result.sql}\n")
 
 def run():
+    args = sys.argv[1:]
+    subcommands = {"chat", "config"}
+    if args and args[0] not in subcommands and not args[0].startswith("-"):
+        sys.argv.insert(1, "ask")
     app()
 
 if __name__ == "__main__":

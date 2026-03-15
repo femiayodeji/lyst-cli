@@ -46,12 +46,13 @@ def get_llm_response(history: List[Dict[str, Any]]) -> str:
     if not api_key:
         raise ValueError("LYST_LLM_API_KEY environment variable is not set.")
 
+    messages = [{"role": "system", "content": build_system_prompt()}] + history
+
     response = completion(
         model=llm.model,
         base_url=llm.base_url or None,
         api_key=api_key,
-        messages=history,
-        system=build_system_prompt(),
+        messages=messages,
         stream=llm.stream
     )
 
