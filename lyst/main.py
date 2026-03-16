@@ -4,8 +4,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
-from .llm import query
-from .config import load_config, save_config, show_config, Config, LLMConfig, DBConfig
+from lyst.llm import query
+from lyst.config import load_config, save_config, show_config, Config, LLMConfig, DBConfig
 
 app = typer.Typer(help="lyst — plain English to SQL CLI analyst")
 config_app = typer.Typer(help="Configure lyst")
@@ -91,46 +91,6 @@ def ask(
         console.print("\n[bold red]Query failed.[/bold red]")
         console.print(f"[dim]LLM correction attempt:[/dim]\n{result.sql}\n")
 
-
-
-@app.command()
-def chat():
-    global history
-    history = []
-
-    rprint("[bold cyan]lyst chat[/bold cyan] — type your question, or 'exit' to quit.\n")
-
-    while True:
-        question = typer.prompt("You")
-
-        if question.strip().lower() in ("exit", "quit", "q"):
-            rprint("[dim]Goodbye![/dim]")
-            break
-
-        with console.status("[bold cyan]Thinking...[/bold cyan]"):
-            result = query(question, history)
-
-        history = result.history
-
-        if result.success:
-            console.print("\n[bold yellow]Generated SQL:[/bold yellow]")
-            console.print(f"[dim]{result.sql}[/dim]\n")
-
-            if result.columns and result.rows:
-                table = Table(show_header=True, header_style="bold magenta")
-                for col in result.columns:
-                    table.add_column(str(col))
-                for row in result.rows:
-                    table.add_row(*[str(val) for val in row])
-                console.print(table)
-            else:
-                console.print("[dim]No rows returned.[/dim]")
-
-            console.print(f"\n[bold green]Summary:[/bold green] {result.summary}\n")
-
-        else:
-            console.print("\n[bold red]Query failed.[/bold red]")
-            console.print(f"[dim]LLM correction attempt:[/dim]\n{result.sql}\n")
 
 def run():
     args = sys.argv[1:]
