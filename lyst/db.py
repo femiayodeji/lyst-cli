@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, text, inspect
-from .config import load_config
+from lyst.config import load_config
 
 
 def get_engine():

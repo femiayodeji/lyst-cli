@@ -1,8 +1,8 @@
 import os
 from dataclasses import dataclass
 from litellm import completion
-from .config import load_config
-from .db import get_schema, get_db_type, run_query
+from lyst.config import load_config
+from lyst.db import get_schema, get_db_type, run_query
 from typing import Any, List, Dict
 
 
