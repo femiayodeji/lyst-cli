@@ -22,12 +22,10 @@ class Config:
     db: DBConfig
 
 
-# In-memory database connection override (session-only, not persisted)
 _db_connection_override: str | None = None
 
 
 def load_config() -> Config:
-    """Load configuration from environment variables and any session overrides."""
     return Config(
         llm=LLMConfig(
             provider=os.environ.get("LYST_LLM_PROVIDER", "gemini"),
@@ -43,13 +41,11 @@ def load_config() -> Config:
 
 
 def set_db_connection(connection: str) -> None:
-    """Temporarily override database connection (session-only)."""
     global _db_connection_override
     _db_connection_override = connection if connection.strip() else None
 
 
 def reset_db_connection() -> None:
-    """Reset database connection to .env default."""
     global _db_connection_override
     _db_connection_override = None
 

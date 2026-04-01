@@ -61,7 +61,6 @@ app = FastAPI(
 
 @app.get("/health")
 def health():
-    """Health check."""
     config = load_config()
     api_key = config.llm.api_key or os.environ.get("LYST_LLM_API_KEY", "")
     return {
@@ -89,7 +88,6 @@ def get_config():
 
 @app.put("/config/db")
 def update_db_config(request: DBConfigRequest):
-    """Update database connection (session-only override)."""
     if not request.connection.strip():
         reset_db_connection()
         clear_schema_cache()
@@ -102,7 +100,6 @@ def update_db_config(request: DBConfigRequest):
 
 @app.get("/schema")
 def get_database_schema():
-    """Get database schema."""
     try:
         return {"db_schema": get_schema(), "db_type": get_db_type()}
     except ValueError as e:
@@ -128,18 +125,10 @@ def load_schema():
         raise HTTPException(status_code=500, detail=f"Failed to load schema: {e}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Agent Endpoints (Main Interface)
-# ═══════════════════════════════════════════════════════════════════════════
 
 @app.post("/agent", response_model=AgentResponse)
 def agent_endpoint(request: AgentRequest):
-    """
-    Send a message to the agent.
-    
-    The agent automatically decides when to query the database vs just chat.
-    Maintains conversation context through history.
-    """
+
     _validate_config()
     
     try:
@@ -159,17 +148,6 @@ def agent_endpoint(request: AgentRequest):
 
 @app.post("/agent/stream")
 def agent_stream_endpoint(request: AgentRequest):
-    """
-    Streaming agent endpoint.
-    
-    Returns Server-Sent Events with real-time updates:
-    - status: Progress messages
-    - tool_call: Tool being invoked
-    - sql: SQL query being executed
-    - result: Query results
-    - message_complete: Final response
-    - done: Stream finished
-    """
     _validate_config()
     
     return StreamingResponse(
@@ -179,13 +157,9 @@ def agent_stream_endpoint(request: AgentRequest):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# SQL Execution (Direct)
-# ═══════════════════════════════════════════════════════════════════════════
 
 @app.post("/execute-sql", response_model=ExecuteSqlResponse)
 def execute_sql_endpoint(request: ExecuteSqlRequest):
-    """Execute raw SQL directly."""
     config = load_config()
     if not config.db.connection:
         raise HTTPException(status_code=400, detail="No database configured")
@@ -208,13 +182,9 @@ def execute_sql_endpoint(request: ExecuteSqlRequest):
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Session & History Endpoints
-# ═══════════════════════════════════════════════════════════════════════════
 
 @app.get("/sessions")
 def list_sessions_endpoint():
-    """List all sessions."""
     sessions = list_sessions()
     active = get_active_session()
     return {
@@ -234,7 +204,6 @@ def list_sessions_endpoint():
 
 @app.post("/sessions")
 def create_session_endpoint():
-    """Create a new session."""
     session = create_session()
     set_active_session(session.id)
     return {
@@ -248,7 +217,6 @@ def create_session_endpoint():
 
 @app.get("/sessions/{session_id}")
 def get_session_endpoint(session_id: str):
-    """Get session details."""
     session = get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -263,7 +231,6 @@ def get_session_endpoint(session_id: str):
 
 @app.delete("/sessions/{session_id}")
 def delete_session_endpoint(session_id: str):
-    """Delete a session."""
     if not delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"message": "Session deleted"}
@@ -271,7 +238,6 @@ def delete_session_endpoint(session_id: str):
 
 @app.put("/sessions/{session_id}/activate")
 def activate_session_endpoint(session_id: str):
-    """Set active session."""
     if not get_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     set_active_session(session_id)
@@ -280,46 +246,34 @@ def activate_session_endpoint(session_id: str):
 
 @app.get("/history")
 def get_history_endpoint():
-    """Get current history."""
     return {"messages": load_history(), "summary": history_summary()}
 
 
 @app.put("/history")
 def save_history_endpoint(request: SaveHistoryRequest):
-    """Save history."""
     save_history(request.messages)
     return {"message": "History saved"}
 
 
 @app.delete("/history")
 def clear_history_endpoint():
-    """Clear history."""
     clear_history()
     return {"message": "History cleared"}
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Static Files
-# ═══════════════════════════════════════════════════════════════════════════
 
 @app.get("/")
 def serve_index():
-    """Serve the main UI."""
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 
-# Mount static files
 static_path = Path(__file__).parent / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Helpers
-# ═══════════════════════════════════════════════════════════════════════════
 
 def _validate_config():
-    """Validate that LLM and DB are configured."""
     config = load_config()
     if not config.llm.model:
         raise HTTPException(status_code=400, detail="No LLM configured")

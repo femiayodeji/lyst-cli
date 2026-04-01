@@ -1,7 +1,6 @@
 from typing import Any
 from app.db import run_query as db_run_query, get_schema as db_get_schema, get_db_type
 
-# Tool definitions in OpenAI function calling format (litellm compatible)
 TOOLS = [
     {
         "type": "function",
@@ -52,10 +51,6 @@ TOOLS = [
 
 
 def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """
-    Execute a tool by name with the given arguments.
-    Returns a dict with 'success' boolean and either 'result' or 'error'.
-    """
     try:
         if tool_name == "execute_sql":
             sql = arguments.get("sql", "")

@@ -7,7 +7,6 @@ def get_engine():
     if not config.db.connection:
         raise ValueError("No database configured. Run: lyst config set --connection <connection-string>")
     
-    # Build connect_args based on database type
     connect_args = {}
     conn_str = config.db.connection.lower()
     
@@ -25,7 +24,6 @@ def get_db_type() -> str:
 
 
 def get_schema() -> str:
-    """Get database schema with raw identifiers - LLM handles dialect-specific quoting."""
     engine = get_engine()
     inspector = inspect(engine)
     schema_lines = []
