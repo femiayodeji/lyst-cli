@@ -82,36 +82,6 @@ class TestConfigEndpoints(unittest.TestCase):
         self.assertTrue(data["llm"]["stream"])
         self.assertIn("connection", data["db"])
 
-    @patch("app.api.save_config")
-    @patch("app.api.clear_schema_cache")
-    def test_put_config_saves_configuration(self, mock_clear, mock_save):
-        """Put config saves new configuration."""
-        response = self.client.put(
-            "/config",
-            json={
-                "llm": {
-                    "provider": "openai",
-                    "model": "gpt-4",
-                    "api_key": "sk-test",
-                    "base_url": "https://api.openai.com/v1",
-                    "stream": False,
-                },
-                "db": {"connection": "sqlite:///test.db"},
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("message", response.json())
-        mock_save.assert_called_once()
-
-    @patch("app.api.reset_config")
-    @patch("app.api.clear_schema_cache")
-    def test_reset_config(self, mock_clear, mock_reset):
-        """Reset config clears to defaults."""
-        response = self.client.post("/config/reset")
-        self.assertEqual(response.status_code, 200)
-        mock_reset.assert_called_once()
-
-
 class TestSchemaEndpoints(unittest.TestCase):
     """Tests for /schema endpoints."""
 

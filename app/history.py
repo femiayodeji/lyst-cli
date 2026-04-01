@@ -1,9 +1,6 @@
 from datetime import datetime
 from dataclasses import dataclass, field
 
-MAX_HISTORY_EXCHANGES = 10
-
-
 @dataclass
 class Session:
     id: str
@@ -91,15 +88,6 @@ def save_history(messages: list[dict]) -> None:
     session = get_or_create_active_session()
     session.messages = messages
     session.updated_at = datetime.now().isoformat()
-
-
-def append_exchange(history: list[dict], user_input: str, assistant_response: str) -> list[dict]:
-    history.append({"role": "user", "content": user_input})
-    history.append({"role": "assistant", "content": assistant_response})
-    max_messages = MAX_HISTORY_EXCHANGES * 2
-    if len(history) > max_messages:
-        history = history[-max_messages:]
-    return history
 
 
 def clear_history() -> None:

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Any
 from pathlib import Path
 
-from app.config import load_config, set_db_connection, reset_db_connection, Config, LLMConfig, DBConfig
+from app.config import load_config, set_db_connection, reset_db_connection
 from app.prompts import cached_schema, cached_db_type, clear_schema_cache
 from app.db import get_schema, get_db_type, run_query as execute_sql
 from app.agent import run as agent_run, run_stream as agent_run_stream
