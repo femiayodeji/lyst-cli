@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lyst — Data Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f8f8fc;
+    --surface: #ffffff;
+    --border: #ebebf5;
+    --border-md: #d8d8ee;
+    --text: #0f0e1a;
+    --muted: #7b7a96;
+    --indigo: #3730a3;
+    --indigo-mid: #4f46e5;
+    --indigo-light: #eef2ff;
+    --indigo-soft: #c7d2fe;
+    --violet: #6d28d9;
+    --violet-light: #f5f3ff;
+    --navy: #1e1b4b;
+    --sky: #0ea5e9;
+    --sky-light: #f0f9ff;
+    --teal: #0d9488;
+    --teal-light: #f0fdfa;
+    --rose: #e11d48;
+    --rose-light: #fff1f2;
+    --success: #059669;
+    --mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO HEADER with hex mesh canvas ── */
+  .hero {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    background: #fafaff;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #hex-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .logo-group {}
+
+  .logo-name {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--navy);
+    line-height: 1;
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .logo-name span {
+    color: var(--indigo-mid);
+  }
+
+  .logo-tagline {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.4rem;
+    font-family: var(--mono);
+  }
+
+  .header-buttons {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .pill-btn {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid var(--border-md);
+    color: var(--muted);
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+    backdrop-filter: blur(8px);
+  }
+
+  .pill-btn:hover {
+    border-color: var(--indigo-mid);
+    color: var(--indigo-mid);
+    background: rgba(238,242,255,0.9);
+  }
+
+  /* ── CHIPS ── */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+  }
+
+  .chips {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.22rem 0.7rem;
+    border-radius: 100px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+    animation: chipIn 0.5s ease both;
+  }
+
+  .chip:nth-child(1) { background: var(--indigo-light); color: var(--indigo-mid); animation-delay: 0.05s; }
+  .chip:nth-child(2) { background: var(--violet-light); color: var(--violet); animation-delay: 0.12s; }
+  .chip:nth-child(3) { background: var(--sky-light); color: var(--sky); animation-delay: 0.19s; }
+  .chip:nth-child(4) { background: var(--teal-light); color: var(--teal); animation-delay: 0.26s; }
+  .chip:nth-child(5) { background: var(--rose-light); color: var(--rose); animation-delay: 0.33s; }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    animation: slideDown 0.22s ease;
+    box-shadow: 0 2px 20px rgba(55,48,163,0.06);
+  }
+
+  .panel.show { display: block; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--indigo-mid);
+    font-family: var(--mono);
+    margin-bottom: 1rem;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+
+  input, select {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-family: 'Outfit', sans-serif;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--indigo-mid);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+  }
+
+  input::placeholder { color: var(--muted); font-size: 0.82rem; }
+
+  .btn-row { display: flex; gap: 0.6rem; }
+
+  .btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.3rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.02em;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .btn:hover {
+    background: var(--indigo);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(55,48,163,0.3);
+  }
+
+  .btn:active { transform: scale(0.98); box-shadow: none; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-md);
+    box-shadow: none;
+  }
+
+  .btn-ghost:hover {
+    background: var(--bg2);
+    color: var(--text);
+    border-color: var(--navy);
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* ── SESSIONS ── */
+  .sessions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .sessions-list { max-height: 280px; overflow-y: auto; }
+
+  .session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.4rem;
+    background: var(--bg2);
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .session-item:hover { border-color: var(--border-md); }
+
+  .session-item.active {
+    border-color: var(--indigo-mid);
+    background: var(--indigo-light);
+  }
+
+  .session-name { font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 0.1rem; }
+  .session-meta { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
+
+  .session-btn {
+    background: none; border: none;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer; font-size: 0.8rem; color: var(--muted);
+    border-radius: 4px; transition: all 0.15s;
+  }
+
+  .session-btn:hover { background: var(--bg); color: var(--text); }
+  .session-btn.delete:hover { background: var(--rose-light); color: var(--rose); }
+
+  .empty-sessions {
+    text-align: center; padding: 2rem;
+    color: var(--muted); font-size: 0.85rem;
+  }
+
+  /* ── MAIN QUERY CARD ── */
+  .query-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    animation: cardIn 0.4s ease 0.15s both;
+    box-shadow: 0 4px 32px rgba(30,27,75,0.08);
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* decorative hex accent on card top-right */
+  .query-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(79,70,229,0.07) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .query-top {
+    padding: 1.5rem 1.75rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .history-bar {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .history-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  .clear-btn {
+    background: none; border: none;
+    font-size: 0.72rem; color: var(--muted);
+    cursor: pointer; font-family: var(--mono);
+    text-decoration: underline; text-underline-offset: 2px;
+    transition: color 0.15s; padding: 0;
+  }
+
+  .clear-btn:hover { color: var(--rose); }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    gap: 0.2rem;
+    margin-bottom: 1rem;
+    background: var(--bg2);
+    padding: 0.2rem;
+    border-radius: 10px;
+    width: fit-content;
+    border: 1px solid var(--border);
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: none;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    color: var(--muted);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .mode-btn:hover { color: var(--text); }
+
+  .mode-btn.active {
+    background: var(--navy);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(30,27,75,0.2);
+  }
+
+  .query-row { display: flex; gap: 0.6rem; }
+
+  .query-row input {
+    flex: 1;
+    font-size: 0.92rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: var(--bg2);
+    border-color: var(--border-md);
+  }
+
+  .status-line {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    min-height: 1.3rem;
+    transition: color 0.2s;
+  }
+
+  .status-line.error { color: var(--rose); }
+  .status-line.success { color: var(--success); }
+
+  /* ── RESPONSE SECTIONS ── */
+  .response-block {
+    display: none;
+    border-bottom: 1px solid var(--border);
+    animation: blockIn 0.25s ease;
+  }
+
+  .response-block.show { display: block; }
+  .response-block:last-child { border-bottom: none; }
+
+  @keyframes blockIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .response-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 1.75rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: var(--mono);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .label-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #chat-block .response-label { background: var(--violet-light); color: var(--violet); }
+  #chat-block .label-dot { background: var(--violet); }
+
+  #sql-block .response-label { background: var(--indigo-light); color: var(--indigo-mid); }
+  #sql-block .label-dot { background: var(--indigo-mid); }
+
+  #results-block .response-label { background: var(--teal-light); color: var(--teal); }
+  #results-block .label-dot { background: var(--teal); }
+
+  /* Chat content */
+  .chat-content {
+    padding: 1.25rem 1.75rem;
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  .chat-content p { margin: 0 0 0.75rem 0; }
+  .chat-content p:last-child { margin-bottom: 0; }
+  .chat-content h1, .chat-content h2, .chat-content h3 { margin: 1rem 0 0.5rem 0; font-weight: 600; }
+  .chat-content ul, .chat-content ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+  .chat-content li { margin: 0.25rem 0; }
+  .chat-content code { background: var(--indigo-light); padding: 0.15rem 0.4rem; border-radius: 4px; font-family: var(--mono); font-size: 0.82em; color: var(--indigo-mid); }
+  .chat-content pre { background: var(--navy); color: #c7d2fe; padding: 1rem; border-radius: 10px; overflow-x: auto; margin: 0.75rem 0; }
+  .chat-content pre code { background: transparent; padding: 0; color: inherit; font-size: 0.82rem; }
+  .chat-content blockquote { border-left: 3px solid var(--indigo-soft); margin: 0.75rem 0; padding-left: 1rem; color: var(--muted); }
+  .chat-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.85rem; }
+  .chat-content th, .chat-content td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+  .chat-content th { background: var(--bg2); font-weight: 600; }
+  .chat-content a { color: var(--indigo-mid); text-decoration: none; }
+  .chat-content a:hover { text-decoration: underline; }
+  .chat-content strong { font-weight: 600; }
+
+  /* SQL block */
+  #sql-block { background: #fafaff; }
+
+  .sql-code {
+    padding: 1.25rem 1.75rem;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--navy);
+    white-space: pre-wrap;
+    line-height: 1.7;
+  }
+
+  /* Results */
+  .empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  /* Hex grid mini decorative animation in empty state */
+  .hex-mini {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    max-width: 180px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hex-cell {
+    width: 22px; height: 22px;
+    background: var(--indigo-soft);
+    clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    opacity: 0.3;
+    animation: hexPulse 2.5s ease-in-out infinite;
+  }
+
+  .hex-cell:nth-child(1) { animation-delay: 0s; background: var(--indigo-mid); }
+  .hex-cell:nth-child(2) { animation-delay: 0.2s; background: var(--violet); }
+  .hex-cell:nth-child(3) { animation-delay: 0.4s; background: var(--sky); }
+  .hex-cell:nth-child(4) { animation-delay: 0.6s; background: var(--teal); }
+  .hex-cell:nth-child(5) { animation-delay: 0.8s; background: var(--indigo); }
+  .hex-cell:nth-child(6) { animation-delay: 1.0s; background: var(--indigo-mid); }
+  .hex-cell:nth-child(7) { animation-delay: 0.1s; background: var(--violet); }
+
+  @keyframes hexPulse {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.12); }
+  }
+
+  /* Results table */
+  .results-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+
+  .results-table thead tr { background: var(--bg2); }
+
+  .results-table th {
+    text-align: left;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 2px solid var(--indigo-soft);
+    font-weight: 700;
+    font-size: 0.67rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: var(--mono);
+    color: var(--indigo-mid);
+  }
+
+  .results-table td {
+    padding: 0.65rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text);
+    transition: background 0.12s;
+  }
+
+  .results-table tbody tr:hover td { background: var(--indigo-light); }
+  .results-table tr:last-child td { border-bottom: none; }
+
+  .row-count {
+    padding: 0.55rem 1.25rem;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .row-count::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  .overflow-wrap { overflow-x: auto; }
+
+  /* Loading spinner */
+  .btn.loading { color: transparent; }
+  .btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    top: 50%; left: 50%;
+    margin: -7px 0 0 -7px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ── HERO with animated hex mesh ── -->
+<div class="hero">
+  <canvas id="hex-canvas"></canvas>
+  <div class="hero-content">
+    <div class="logo-group">
+      <div class="logo-name">l<span>y</span>st</div>
+      <div class="logo-tagline">// data analysis engine</div>
+    </div>
+    <div class="header-buttons">
+      <button class="pill-btn" onclick="toggleSessions()">⧖ Sessions</button>
+      <button class="pill-btn" onclick="toggleConfig()">⚙ Settings</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="chips">
+    <span class="chip">SQL</span>
+    <span class="chip">Natural language</span>
+    <span class="chip">Streaming</span>
+    <span class="chip">Multi-turn</span>
+    <span class="chip">Any database</span>
+  </div>
+
+  <!-- Config panel -->
+  <div id="config-panel" class="panel">
+    <div class="panel-title">// Configuration</div>
+    <div class="config-grid">
+      <div class="form-group">
+        <label>LLM Provider</label>
+        <input type="text" id="llm-provider" placeholder="openai, anthropic…">
+      </div>
+      <div class="form-group">
+        <label>Model</label>
+        <input type="text" id="llm-model" placeholder="gpt-4, claude-3…">
+      </div>
+      <div class="form-group">
+        <label>Base URL</label>
+        <input type="text" id="llm-base-url" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="form-group">
+        <label>Database</label>
+        <input type="text" id="db-connection" placeholder="postgresql://user:pass@host/db">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveConfig()">Save configuration</button>
+      <button class="btn btn-ghost" onclick="testConnection()">Test connection</button>
+    </div>
+    <div id="config-status" class="status-line"></div>
+  </div>
+
+  <!-- Sessions panel -->
+  <div id="sessions-panel" class="panel">
+    <div class="sessions-header">
+      <div class="panel-title" style="margin-bottom:0">// Sessions</div>
+      <button class="btn" style="padding:0.45rem 1rem; font-size:0.8rem;" onclick="createNewSession()">+ New</button>
+    </div>
+    <div id="sessions-list" class="sessions-list">
+      <div class="empty-sessions">No sessions yet.</div>
+    </div>
+  </div>
+
+  <!-- Main query card -->
+  <div class="query-card" style="position:relative;">
+    <div class="query-top">
+      <div id="history-bar" class="history-bar">
+        <span class="history-dot"></span>
+        <span id="history-count">0</span> messages in context &nbsp;&middot;&nbsp;
+        <button class="clear-btn" onclick="clearHistory()">clear</button>
+      </div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-query" onclick="setMode('query')">⚡ Query</button>
+        <button class="mode-btn" id="mode-chat" onclick="setMode('chat')">◎ Chat</button>
+      </div>
+      <div class="query-row">
+        <input type="text" id="question" placeholder="Ask anything about your data…" onkeypress="if(event.key==='Enter')runQuery()">
+        <button class="btn" id="query-btn" onclick="runQuery()">Run</button>
+      </div>
+      <div id="status" class="status-line"></div>
+    </div>
+
+    <div id="chat-block" class="response-block">
+      <div class="response-label"><span class="label-dot"></span>Chat response</div>
+      <div id="chat-content" class="chat-content"></div>
+    </div>
+
+    <div id="sql-block" class="response-block">
+      <div class="response-label"><span class="label-dot"></span>Generated SQL</div>
+      <div id="sql-code" class="sql-code"></div>
+    </div>
+
+    <div id="results-block" class="response-block">
+      <div class="response-label"><span class="label-dot"></span>Results</div>
+      <div id="results-wrapper">
+        <div class="empty-state">
+          <div class="hex-mini">
+            <div class="hex-cell"></div><div class="hex-cell"></div><div class="hex-cell"></div><div class="hex-cell"></div>
+            <div class="hex-cell"></div><div class="hex-cell"></div><div class="hex-cell"></div>
+          </div>
+          Ask a question to query your data
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ───────────────────────────── HEX MESH CANVAS ───────────────────────── */
+(function() {
+  const canvas = document.getElementById('hex-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, nodes = [], edges = [];
+  let t = 0;
+
+  function resize() {
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+    buildMesh();
+  }
+
+  function hexCenter(col, row, size) {
+    const w = size * 2;
+    const h = Math.sqrt(3) * size;
+    const x = col * w * 0.75;
+    const y = row * h + (col % 2) * h / 2;
+    return { x, y };
+  }
+
+  function buildMesh() {
+    nodes = []; edges = [];
+    const size = 38;
+    const cols = Math.ceil(W / (size * 1.5)) + 3;
+    const rows = Math.ceil(H / (size * Math.sqrt(3))) + 3;
+
+    for (let c = -1; c < cols; c++) {
+      for (let r = -1; r < rows; r++) {
+        const { x, y } = hexCenter(c, r, size);
+        // Curve: shift x based on distance from left, creating the mesh wave
+        const xShifted = x;
+        const yShifted = y;
+        nodes.push({ x: xShifted, y: yShifted, c, r, phase: Math.random() * Math.PI * 2 });
+      }
+    }
+
+    // Build edges between adjacent hexes
+    const rowCount = rows + 2;
+    for (let i = 0; i < nodes.length; i++) {
+      const { c, r } = nodes[i];
+      // right neighbor
+      const ri = nodes.findIndex(n => n.c === c + 1 && n.r === r);
+      if (ri !== -1) edges.push([i, ri]);
+      // bottom-right
+      const brOff = (c % 2 === 0) ? 0 : -1;
+      const bri = nodes.findIndex(n => n.c === c + 1 && n.r === r + 1 + brOff);
+      if (bri !== -1) edges.push([i, bri]);
+      // bottom
+      const bi = nodes.findIndex(n => n.c === c && n.r === r + 1);
+      if (bi !== -1) edges.push([i, bi]);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.008;
+
+    // Draw edges
+    for (const [ai, bi] of edges) {
+      const a = nodes[ai], b = nodes[bi];
+      const ax = a.x, ay = a.y, bx = b.x, by = b.y;
+      const midX = (ax + bx) / 2;
+      // fade based on horizontal position (right side more visible, like the image)
+      const xFrac = midX / W;
+      const alpha = Math.max(0, Math.min(1, (xFrac - 0.1) * 1.6)) * 0.18;
+      ctx.strokeStyle = `rgba(55,48,163,${alpha})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+    }
+
+    // Draw nodes
+    for (const n of nodes) {
+      const xFrac = n.x / W;
+      const pulse = Math.sin(t * 1.5 + n.phase) * 0.5 + 0.5;
+      const baseAlpha = Math.max(0, Math.min(1, (xFrac - 0.05) * 1.8));
+      const alpha = baseAlpha * (0.25 + pulse * 0.5);
+      const r = 1.5 + pulse * 1.5;
+      ctx.fillStyle = `rgba(79,70,229,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Occasional bright node
+      if (pulse > 0.85 && baseAlpha > 0.4) {
+        ctx.fillStyle = `rgba(109,40,217,${baseAlpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+})();
+
+/* ───────────────────────────── APP LOGIC ─────────────────────────────── */
+let conversationHistory = [], chatHistory = [], currentMode = 'query';
+let streamingChatBuffer = '', activeSessionId = null, sessions = [];
+let schemaLoaded = false, schemaLoading = false;
+
+function toggleConfig() {
+  document.getElementById('config-panel').classList.toggle('show');
+  document.getElementById('sessions-panel').classList.remove('show');
+}
+
+function toggleSessions() {
+  document.getElementById('sessions-panel').classList.toggle('show');
+  document.getElementById('config-panel').classList.remove('show');
+  if (document.getElementById('sessions-panel').classList.contains('show')) loadSessions();
+}
+
+async function loadSessions() {
+  try {
+    const res = await fetch('/sessions');
+    if (res.ok) { const d = await res.json(); sessions = d.sessions; activeSessionId = d.active_session_id; renderSessions(); }
+  } catch(e) {}
+}
+
+function renderSessions() {
+  const c = document.getElementById('sessions-list');
+  if (!sessions.length) { c.innerHTML = '<div class="empty-sessions">No sessions yet.</div>'; return; }
+  c.innerHTML = sessions.map(s => `
+    <div class="session-item ${s.id===activeSessionId?'active':''}" onclick="activateSession('${s.id}')">
+      <div><div class="session-name">${esc(s.name)}</div><div class="session-meta">${s.message_count} msgs · ${formatDate(s.updated_at)}</div></div>
+      <div><button class="session-btn delete" onclick="event.stopPropagation();deleteSession('${s.id}')">✕</button></div>
+    </div>`).join('');
+}
+
+function formatDate(s) { const d = new Date(s); return d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+
+async function createNewSession() {
+  const name = prompt('Session name (optional):') || undefined;
+  try {
+    const res = await fetch('/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    if (res.ok) { const s = await res.json(); activeSessionId = s.id; conversationHistory=[]; chatHistory=[]; updateHistoryBar(); loadSessions(); resetSections(); }
+  } catch(e) {}
+}
+
+async function activateSession(id) {
+  try {
+    const res = await fetch(`/sessions/${id}/activate`,{method:'PUT'});
+    if (res.ok) {
+      activeSessionId = id;
+      const r2 = await fetch(`/sessions/${id}`);
+      if (r2.ok) { const s = await r2.json(); conversationHistory=s.messages.filter(m=>m.type==='query'||!m.type).map(m=>({role:m.role,content:m.content})); chatHistory=s.messages.filter(m=>m.type==='chat').map(m=>({role:m.role,content:m.content})); updateHistoryBar(); }
+      loadSessions();
+    }
+  } catch(e) {}
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete session?')) return;
+  try {
+    const res = await fetch(`/sessions/${id}`,{method:'DELETE'});
+    if (res.ok) { if (id===activeSessionId){activeSessionId=null;conversationHistory=[];chatHistory=[];updateHistoryBar();resetSections();} loadSessions(); }
+  } catch(e) {}
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-query').classList.toggle('active', mode==='query');
+  document.getElementById('mode-chat').classList.toggle('active', mode==='chat');
+  const inp = document.getElementById('question');
+  const btn = document.getElementById('query-btn');
+  inp.placeholder = mode==='query' ? 'Ask anything about your data…' : 'Ask about schema, SQL concepts, or lyst…';
+  btn.textContent = mode==='query' ? 'Run' : 'Send';
+  resetSections();
+  mode==='query' ? updateHistoryBar() : updateChatHistoryBar();
+}
+
+function resetSections() {
+  ['chat-block','sql-block','results-block'].forEach(id=>{ document.getElementById(id).className='response-block'; });
+  document.getElementById('chat-content').textContent='';
+  document.getElementById('sql-code').textContent='';
+  document.getElementById('results-wrapper').innerHTML=`<div class="empty-state"><div class="hex-mini">${'<div class="hex-cell"></div>'.repeat(7)}</div>Ask a question to query your data</div>`;
+  document.getElementById('status').textContent=''; document.getElementById('status').className='status-line';
+}
+
+async function loadConfig() {
+  try { const res=await fetch('/config'); const d=await res.json(); document.getElementById('llm-provider').value=d.llm?.provider||''; document.getElementById('llm-model').value=d.llm?.model||''; document.getElementById('llm-base-url').value=d.llm?.base_url||''; document.getElementById('db-connection').value=d.db?.connection||''; } catch(e) {}
+}
+
+async function saveConfig() {
+  const st=document.getElementById('config-status'); st.textContent='Saving…'; st.className='status-line';
+  try {
+    const res=await fetch('/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({llm:{provider:document.getElementById('llm-provider').value,model:document.getElementById('llm-model').value,base_url:document.getElementById('llm-base-url').value,stream:true},db:{connection:document.getElementById('db-connection').value}})});
+    if(res.ok){st.textContent='Saved.';st.className='status-line success';loadSchema();}else{const e=await res.json();st.textContent=e.detail||'Failed';st.className='status-line error';}
+  } catch(e){st.textContent='Connection error';st.className='status-line error';}
+}
+
+async function testConnection() {
+  const st=document.getElementById('config-status'); st.textContent='Testing…'; st.className='status-line';
+  try { const res=await fetch('/schema'); if(res.ok){const d=await res.json();st.textContent='Connected — '+d.db_type;st.className='status-line success';loadSchema();}else{const e=await res.json();st.textContent=e.detail||'Failed';st.className='status-line error';} } catch(e){st.textContent='Connection error';st.className='status-line error';}
+}
+
+function updateHistoryBar() { const b=document.getElementById('history-bar'); document.getElementById('history-count').textContent=conversationHistory.length; b.style.display=conversationHistory.length>0?'flex':'none'; }
+function updateChatHistoryBar() { const b=document.getElementById('history-bar'); document.getElementById('history-count').textContent=chatHistory.length; b.style.display=chatHistory.length>0?'flex':'none'; }
+function clearHistory() { if(currentMode==='query'){conversationHistory=[];updateHistoryBar();}else{chatHistory=[];updateChatHistoryBar();} try{fetch('/history',{method:'DELETE'});}catch(e){} }
+
+async function saveHistoryToServer() {
+  const all=[...conversationHistory.map(m=>({...m,type:'query'})),...chatHistory.map(m=>({...m,type:'chat'}))];
+  try{await fetch('/history',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:all})});}catch(e){}
+}
+
+async function loadHistoryFromServer() {
+  try {
+    const r=await fetch('/sessions'); if(!r.ok)return;
+    const d=await r.json(); sessions=d.sessions; activeSessionId=d.active_session_id;
+    if(activeSessionId){const r2=await fetch(`/sessions/${activeSessionId}`);if(r2.ok){const s=await r2.json();conversationHistory=s.messages.filter(m=>m.type==='query'||!m.type).map(m=>({role:m.role,content:m.content}));chatHistory=s.messages.filter(m=>m.type==='chat').map(m=>({role:m.role,content:m.content}));updateHistoryBar();}}
+  } catch(e) {}
+}
+
+async function runQuery() {
+  if(currentMode==='chat') return runChat();
+  if (!schemaLoaded) {
+    const st = document.getElementById('status');
+    st.textContent = schemaLoading ? 'Please wait, loading schema…' : 'Schema not loaded. Configure database and reload.';
+    st.className = 'status-line error';
+    return;
+  }
+  const question=document.getElementById('question').value.trim(); if(!question) return;
+  const st=document.getElementById('status'), chatBlock=document.getElementById('chat-block'), chatContent=document.getElementById('chat-content');
+  const sqlBlock=document.getElementById('sql-block'), sqlCode=document.getElementById('sql-code');
+  const resultsBlock=document.getElementById('results-block'), resultsWrapper=document.getElementById('results-wrapper');
+  const btn=document.getElementById('query-btn');
+
+  btn.disabled=true; btn.classList.add('loading');
+  st.textContent='Generating SQL…'; st.className='status-line';
+  streamingChatBuffer='';
+  chatBlock.className='response-block'; chatContent.textContent='';
+  sqlBlock.className='response-block'; sqlCode.textContent='';
+  resultsBlock.className='response-block';
+  resultsWrapper.innerHTML=`<div class="empty-state"><div class="hex-mini">${'<div class="hex-cell"></div>'.repeat(7)}</div>Waiting for results…</div>`;
+
+  try {
+    const response=await fetch('/query/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question,history:conversationHistory})});
+    if(!response.ok){const e=await response.json();throw new Error(e.detail||'Query failed');}
+    const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer='';
+    while(true){
+      const{done,value}=await reader.read(); if(done) break;
+      buffer+=decoder.decode(value,{stream:true}); const lines=buffer.split('\n'); buffer=lines.pop();
+      for(const line of lines){if(line.startsWith('data: ')){try{handleEvent(JSON.parse(line.slice(6)),st,chatBlock,chatContent,sqlBlock,sqlCode,resultsBlock,resultsWrapper);}catch(e){}}}
+    }
+  } catch(e){st.textContent=e.message;st.className='status-line error';}
+  btn.disabled=false; btn.classList.remove('loading');
+  document.getElementById('question').value='';
+}
+
+function handleEvent(data,st,chatBlock,chatContent,sqlBlock,sqlCode,resultsBlock,resultsWrapper) {
+  switch(data.type){
+    case 'status': st.textContent=data.content; st.className='status-line'; break;
+    case 'sql_chunk': sqlBlock.className='response-block show'; sqlCode.textContent+=data.content; break;
+    case 'sql_complete': sqlBlock.className='response-block show'; sqlCode.textContent=data.content; break;
+    case 'chat_chunk': chatBlock.className='response-block show'; streamingChatBuffer+=data.content; chatContent.textContent=streamingChatBuffer; break;
+    case 'chat_complete': chatBlock.className='response-block show'; streamingChatBuffer=''; chatContent.innerHTML=typeof marked!=='undefined'?marked.parse(data.content):data.content; break;
+    case 'result':
+      resultsBlock.className='response-block show';
+      if(data.success){st.textContent=data.row_count+' row(s) returned';st.className='status-line success';renderResults(data.columns,data.rows,resultsWrapper);}
+      else{st.textContent='Query failed';st.className='status-line error';resultsWrapper.innerHTML='<div class="empty-state" style="color:var(--rose)">Error: '+esc(data.error||'Unknown error')+'</div>';}
+      break;
+    case 'error': st.textContent=data.content; st.className='status-line error'; chatBlock.className='response-block show'; chatContent.innerHTML='<p style="color:var(--rose)">Error: '+esc(data.content)+'</p>'; break;
+    case 'history': conversationHistory=data.content; updateHistoryBar(); saveHistoryToServer(); break;
+    case 'done': st.textContent='Complete'; st.className='status-line success'; break;
+  }
+}
+
+function renderResults(columns,rows,container) {
+  if(!columns||columns.length===0){container.innerHTML='<div class="empty-state">No results</div>';return;}
+  let html='<div class="overflow-wrap"><table class="results-table"><thead><tr>';
+  for(const col of columns) html+='<th>'+esc(String(col))+'</th>';
+  html+='</tr></thead><tbody>';
+  for(const row of rows){html+='<tr>';for(const cell of row) html+='<td>'+esc(String(cell??''))+'</td>';html+='</tr>';}
+  html+='</tbody></table></div><div class="row-count">'+rows.length+' row(s)</div>';
+  container.innerHTML=html;
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+async function runChat() {
+  if (!schemaLoaded) {
+    const st = document.getElementById('status');
+    st.textContent = schemaLoading ? 'Please wait, loading schema…' : 'Schema not loaded. Configure database and reload.';
+    st.className = 'status-line error';
+    return;
+  }
+  const message=document.getElementById('question').value.trim(); if(!message) return;
+  const st=document.getElementById('status'),chatBlock=document.getElementById('chat-block'),chatContent=document.getElementById('chat-content');
+  const sqlBlock=document.getElementById('sql-block'),resultsBlock=document.getElementById('results-block'),btn=document.getElementById('query-btn');
+  btn.disabled=true; btn.classList.add('loading'); st.textContent='Thinking…'; st.className='status-line';
+  streamingChatBuffer=''; sqlBlock.className='response-block'; resultsBlock.className='response-block';
+  chatBlock.className='response-block show'; chatContent.textContent='';
+  try {
+    const response=await fetch('/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history:chatHistory})});
+    if(!response.ok){const e=await response.json();throw new Error(e.detail||'Chat failed');}
+    const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer='';
+    while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines){if(line.startsWith('data: ')){try{handleChatEvent(JSON.parse(line.slice(6)),st,chatBlock,chatContent);}catch(e){}}}}
+  } catch(e){st.textContent=e.message;st.className='status-line error';}
+  btn.disabled=false; btn.classList.remove('loading');
+  document.getElementById('question').value='';
+}
+
+function handleChatEvent(data,st,chatBlock,chatContent) {
+  switch(data.type){
+    case 'status': st.textContent=data.content; st.className='status-line'; break;
+    case 'chat_chunk': chatBlock.className='response-block show'; streamingChatBuffer+=data.content; chatContent.textContent=streamingChatBuffer; break;
+    case 'chat_complete': chatBlock.className='response-block show'; streamingChatBuffer=''; chatContent.innerHTML=typeof marked!=='undefined'?marked.parse(data.content):data.content; break;
+    case 'history': chatHistory=data.content; updateChatHistoryBar(); saveHistoryToServer(); break;
+    case 'done': st.textContent='Complete'; st.className='status-line success'; break;
+  }
+}
+
+async function loadSchema() {
+  const st = document.getElementById('status');
+  const btn = document.getElementById('query-btn');
+  const inp = document.getElementById('question');
+  
+  schemaLoading = true;
+  schemaLoaded = false;
+  btn.disabled = true;
+  inp.disabled = true;
+  st.textContent = 'Loading schema…';
+  st.className = 'status-line';
+  
+  try {
+    const res = await fetch('/schema/load', { method: 'POST' });
+    if (res.ok) {
+      const d = await res.json();
+      schemaLoaded = true;
+      st.textContent = 'Schema loaded — ' + d.db_type + ' (' + d.tables_count + ' tables)';
+      st.className = 'status-line success';
+      btn.disabled = false;
+      inp.disabled = false;
+    } else {
+      const e = await res.json();
+      schemaLoaded = false;
+      st.textContent = 'Schema load failed: ' + (e.detail || 'Unknown error');
+      st.className = 'status-line error';
+    }
+  } catch (e) {
+    schemaLoaded = false;
+    st.textContent = 'Schema load failed: Connection error';
+    st.className = 'status-line error';
+  }
+  schemaLoading = false;
+}
+
+loadConfig();
+loadSchema();
+loadHistoryFromServer();
+</script>
+</body>
+</html>

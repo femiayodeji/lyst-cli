@@ -1,12 +1,22 @@
 from sqlalchemy import create_engine, text, inspect
-from lyst.config import load_config
+from app.config import load_config
 
 
 def get_engine():
     config = load_config()
     if not config.db.connection:
         raise ValueError("No database configured. Run: lyst config set --connection <connection-string>")
-    return create_engine(config.db.connection)
+    
+    # Build connect_args based on database type
+    connect_args = {}
+    conn_str = config.db.connection.lower()
+    
+    if conn_str.startswith('postgresql'):
+        connect_args = {'connect_timeout': 10}
+    elif conn_str.startswith('mysql'):
+        connect_args = {'connect_timeout': 10}
+    
+    return create_engine(config.db.connection, connect_args=connect_args if connect_args else {})
 
 
 def get_db_type() -> str:
@@ -15,6 +25,7 @@ def get_db_type() -> str:
 
 
 def get_schema() -> str:
+    """Get database schema with raw identifiers - LLM handles dialect-specific quoting."""
     engine = get_engine()
     inspector = inspect(engine)
     schema_lines = []
