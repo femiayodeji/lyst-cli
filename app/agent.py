@@ -30,15 +30,48 @@ def _get_llm_config() -> tuple[str, str, str | None]:
     return llm.model, api_key, llm.base_url or None
 
 
-def _call_llm(messages: list[dict], tools: list[dict] | None = None) -> Any:
+def _call_llm(
+    messages: list[dict],
+    tools: list[dict] | None = None,
+    stream: bool = False,
+    tool_choice: str | dict | None = None,
+) -> Any:
     model, api_key, base_url = _get_llm_config()
-    kwargs = {"model": model, "api_key": api_key, "messages": messages}
+    kwargs = {"model": model, "api_key": api_key, "messages": messages, "stream": stream}
     if base_url:
         kwargs["base_url"] = base_url
     if tools:
         kwargs["tools"] = tools
-        kwargs["tool_choice"] = "auto"
+        kwargs["tool_choice"] = tool_choice or "auto"
     return completion(**kwargs)
+
+
+def _looks_like_data_request(message: str) -> bool:
+    text = (message or "").strip().lower()
+    if not text:
+        return False
+
+    indicators = [
+        "how many",
+        "count",
+        "total",
+        "sum",
+        "average",
+        "avg",
+        "report",
+        "list",
+        "show",
+        "monthly",
+        "year",
+        "today",
+        "this month",
+        "this year",
+        "last month",
+        "last year",
+        "users",
+        "subscriptions",
+    ]
+    return any(token in text for token in indicators)
 
 
 def _process_tool_calls(assistant_message: Any) -> list[dict]:
@@ -64,9 +97,15 @@ def run(message: str, history: list[dict] | None = None, max_iterations: int = 5
     tool_calls_made: list[dict[str, Any]] = []
     sql_results: list[dict[str, Any]] = []
     iterations = 0
+    force_execute_sql = _looks_like_data_request(message)
     
     while iterations < max_iterations:
-        response = _call_llm(messages, tools=TOOLS)
+        llm_tools = TOOLS
+        tool_choice = None
+        if force_execute_sql and iterations == 0:
+            llm_tools = [TOOLS[0]]
+            tool_choice = {"type": "function", "function": {"name": "execute_sql"}}
+        response = _call_llm(messages, tools=llm_tools, tool_choice=tool_choice)
         assistant_message = response.choices[0].message
         
         # Check for tool calls
@@ -155,7 +194,33 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
     """
     
     def emit(event_type: str, data: Any) -> str:
-        return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
+        return f"data: {json.dumps({'type': event_type, 'data': data}, default=str)}\n\n"
+
+    def _extract_chunk_text(chunk: Any) -> str:
+        """Extract provider-agnostic text from a streaming chunk."""
+        try:
+            choice = chunk.choices[0]
+            delta = getattr(choice, "delta", None)
+            if delta is None:
+                return ""
+
+            content = getattr(delta, "content", None)
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for item in content:
+                    text_value = None
+                    if isinstance(item, dict):
+                        text_value = item.get("text")
+                    else:
+                        text_value = getattr(item, "text", None)
+                    if text_value:
+                        parts.append(str(text_value))
+                return "".join(parts)
+            return ""
+        except Exception:
+            return ""
     
     history = (history or []).copy()
     history.append({"role": "user", "content": message})
@@ -166,25 +231,41 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
     tool_calls_made: list[dict[str, Any]] = []
     sql_results: list[dict[str, Any]] = []
     iterations = 0
+    force_execute_sql = _looks_like_data_request(message)
     
     try:
         while iterations < max_iterations:
             yield emit("status", "Thinking...")
             
-            response = _call_llm(messages, tools=TOOLS)
+            llm_tools = TOOLS
+            tool_choice = None
+            if force_execute_sql and iterations == 0:
+                llm_tools = [TOOLS[0]]
+                tool_choice = {"type": "function", "function": {"name": "execute_sql"}}
+            response = _call_llm(messages, tools=llm_tools, tool_choice=tool_choice)
             assistant_message = response.choices[0].message
             
             tool_infos = _process_tool_calls(assistant_message)
             
             if not tool_infos:
-                # Final response
-                final_message = assistant_message.content or ""
+                # Final response: stream tokens from LLM so the UI updates live.
+                yield emit("status", "Generating response...")
+
+                chunks: list[str] = []
+                stream_response = _call_llm(messages, stream=True)
+                for chunk in stream_response:
+                    text_chunk = _extract_chunk_text(chunk)
+                    if text_chunk:
+                        chunks.append(text_chunk)
+                        yield emit("message_chunk", text_chunk)
+
+                final_message = "".join(chunks).strip() or (assistant_message.content or "")
                 history.append({"role": "assistant", "content": final_message})
                 
                 yield emit("message_complete", final_message)
-                yield emit("tool_calls", {"data": tool_calls_made})
-                yield emit("sql_results", {"data": sql_results})
-                yield emit("history", {"data": history})
+                yield emit("tool_calls", tool_calls_made)
+                yield emit("sql_results", sql_results)
+                yield emit("history", history)
                 yield emit("done", {})
                 return
             

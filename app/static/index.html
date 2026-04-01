@@ -776,28 +776,16 @@ body {
   <!-- Config Panel -->
   <div id="config-panel" class="panel">
     <div class="panel-header">
-      <div class="panel-title">// Configuration</div>
+      <div class="panel-title">// Database</div>
     </div>
     <div class="config-grid">
-      <div class="form-group">
-        <label>LLM Provider</label>
-        <input type="text" id="llm-provider" placeholder="anthropic, openai...">
-      </div>
-      <div class="form-group">
-        <label>Model</label>
-        <input type="text" id="llm-model" placeholder="claude-3-sonnet, gpt-4...">
-      </div>
-      <div class="form-group">
-        <label>Base URL</label>
-        <input type="text" id="llm-base-url" placeholder="https://api.anthropic.com">
-      </div>
       <div class="form-group">
         <label>Database Connection</label>
         <input type="text" id="db-connection" placeholder="postgresql://user:pass@host/db">
       </div>
     </div>
     <div class="btn-row">
-      <button class="btn" onclick="saveConfig()">Save</button>
+      <button class="btn" onclick="saveDbConfig()">Save</button>
       <button class="btn btn-secondary" onclick="testConnection()">Test Connection</button>
     </div>
     <div id="config-status" class="status-text"></div>
@@ -1017,6 +1005,9 @@ function esc(s) {
 function toggleConfig() {
   document.getElementById('config-panel').classList.toggle('show');
   document.getElementById('sessions-panel').classList.remove('show');
+  if (document.getElementById('config-panel').classList.contains('show')) {
+    loadDbConfig();
+  }
 }
 
 function toggleSessions() {
@@ -1129,6 +1120,26 @@ function removeStatusMessage() {
   if (status) status.parentElement.remove();
 }
 
+function upsertStreamingAssistantMessage(content) {
+  clearEmptyState();
+  let div = document.getElementById('streaming-assistant-message');
+  if (!div) {
+    div = document.createElement('div');
+    div.id = 'streaming-assistant-message';
+    div.className = 'message assistant';
+    messagesEl.appendChild(div);
+  }
+
+  const rendered = typeof marked !== 'undefined' ? marked.parse(content || '') : esc(content || '');
+  div.innerHTML = `<div class="message-bubble">${rendered}</div>`;
+  scrollToBottom();
+}
+
+function removeStreamingAssistantMessage() {
+  const div = document.getElementById('streaming-assistant-message');
+  if (div) div.remove();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API Calls
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1189,32 +1200,58 @@ async function sendMessage() {
       }
     }
     
+    function eventPayload(evt) {
+      if (!evt || typeof evt !== 'object') return null;
+      if ('data' in evt) return evt.data;
+      if ('content' in evt) return evt.content;
+      return null;
+    }
+
     function handleStreamEvent(data) {
       switch (data.type) {
-        case 'status':
-          addStatusMessage(data.content);
+        case 'status': {
+          const payload = eventPayload(data);
+          addStatusMessage(payload || 'Working...');
           break;
-        case 'sql':
-          currentSql = data.content;
+        }
+        case 'sql': {
+          const payload = eventPayload(data);
+          currentSql = typeof payload === 'string' ? payload : null;
           addStatusMessage('Executing query...');
           break;
+        }
         case 'result':
-          currentResults = data;
+          currentResults = eventPayload(data);
           break;
-        case 'message_complete':
-          messageContent = data.content;
+        case 'message_chunk': {
+          const payload = eventPayload(data);
+          if (typeof payload === 'string' && payload) {
+            messageContent += payload;
+            upsertStreamingAssistantMessage(messageContent);
+          }
           break;
+        }
+        case 'message_complete': {
+          const payload = eventPayload(data);
+          if (typeof payload === 'string') {
+            messageContent = payload;
+          }
+          break;
+        }
         case 'history':
-          history = data.data || [];
+          history = eventPayload(data) || [];
           updateMsgCount();
           saveHistoryToServer();
           break;
-        case 'error':
+        case 'error': {
+          const payload = eventPayload(data);
           removeStatusMessage();
-          addAssistantMessage(`Error: ${data.content}`);
+          addAssistantMessage(`Error: ${payload || 'Unknown error'}`);
           break;
+        }
         case 'done':
           removeStatusMessage();
+          removeStreamingAssistantMessage();
           if (messageContent || currentSql || currentResults) {
             addAssistantMessage(messageContent, currentSql, currentResults);
           }
@@ -1224,6 +1261,7 @@ async function sendMessage() {
     
   } catch (e) {
     removeStatusMessage();
+    removeStreamingAssistantMessage();
     addAssistantMessage(`Error: ${e.message}`);
   }
   
@@ -1244,53 +1282,44 @@ function clearChat() {
   fetch('/history', { method: 'DELETE' }).catch(() => {});
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Config
+// Database Config
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function loadConfig() {
+async function loadDbConfig() {
   try {
     const res = await fetch('/config');
+    if (!res.ok) return;
     const d = await res.json();
-    document.getElementById('llm-provider').value = d.llm?.provider || '';
-    document.getElementById('llm-model').value = d.llm?.model || '';
-    document.getElementById('llm-base-url').value = d.llm?.base_url || '';
     document.getElementById('db-connection').value = d.db?.connection || '';
-    return d;
-  } catch (e) {
-    return null;
-  }
+  } catch (e) {}
 }
 
-async function saveConfig() {
+async function saveDbConfig() {
   const status = document.getElementById('config-status');
+  const connection = document.getElementById('db-connection').value.trim();
+
   status.textContent = 'Saving...';
   status.className = 'status-text';
-  
+
   try {
-    const res = await fetch('/config', {
+    const res = await fetch('/config/db', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        llm: {
-          provider: document.getElementById('llm-provider').value,
-          model: document.getElementById('llm-model').value,
-          base_url: document.getElementById('llm-base-url').value,
-          stream: true
-        },
-        db: { connection: document.getElementById('db-connection').value }
-      })
+      body: JSON.stringify({ connection })
     });
-    
-    if (res.ok) {
-      status.textContent = 'Saved! Loading schema...';
-      status.className = 'status-text success';
-      loadSchema();
-    } else {
-      const e = await res.json();
+
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
       status.textContent = e.detail || 'Failed to save';
       status.className = 'status-text error';
+      return;
     }
+
+    status.textContent = connection ? 'Saved! Loading schema...' : 'Reset to .env default. Loading schema...';
+    status.className = 'status-text success';
+    await loadSchema();
   } catch (e) {
     status.textContent = 'Connection error';
     status.className = 'status-text error';
@@ -1299,55 +1328,38 @@ async function saveConfig() {
 
 async function testConnection() {
   const status = document.getElementById('config-status');
-  const connStr = document.getElementById('db-connection').value.trim();
-  
-  if (!connStr) {
+  const connection = document.getElementById('db-connection').value.trim();
+
+  if (!connection) {
     status.textContent = 'Please enter a database connection string';
     status.className = 'status-text error';
     return;
   }
-  
-  status.textContent = 'Saving config...';
+
+  status.textContent = 'Saving and testing...';
   status.className = 'status-text';
-  
-  // First save the config
+
   try {
-    const saveRes = await fetch('/config', {
+    const saveRes = await fetch('/config/db', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        llm: {
-          provider: document.getElementById('llm-provider').value,
-          model: document.getElementById('llm-model').value,
-          base_url: document.getElementById('llm-base-url').value,
-          stream: true
-        },
-        db: { connection: connStr }
-      })
+      body: JSON.stringify({ connection })
     });
-    
+
     if (!saveRes.ok) {
-      const e = await saveRes.json();
+      const e = await saveRes.json().catch(() => ({}));
       status.textContent = e.detail || 'Failed to save config';
       status.className = 'status-text error';
       return;
     }
-  } catch (e) {
-    status.textContent = 'Connection error while saving';
-    status.className = 'status-text error';
-    return;
-  }
-  
-  status.textContent = 'Testing connection...';
-  
-  try {
-    const res = await fetch('/schema');
-    if (res.ok) {
-      const d = await res.json();
+
+    const schemaRes = await fetch('/schema');
+    if (schemaRes.ok) {
+      const d = await schemaRes.json();
       status.textContent = `Connected — ${d.db_type}`;
       status.className = 'status-text success';
     } else {
-      const e = await res.json();
+      const e = await schemaRes.json().catch(() => ({}));
       status.textContent = e.detail || 'Connection failed';
       status.className = 'status-text error';
     }
@@ -1357,17 +1369,9 @@ async function testConnection() {
   }
 }
 
+
+
 async function loadSchema() {
-  const connStr = document.getElementById('db-connection').value.trim();
-  
-  if (!connStr) {
-    schemaLoaded = false;
-    inputEl.disabled = true;
-    sendBtn.disabled = true;
-    updateStatusBar('error', 'No database configured. <a onclick="toggleConfig()">Open Settings</a>');
-    return;
-  }
-  
   inputEl.disabled = true;
   sendBtn.disabled = true;
   updateStatusBar('loading', 'Loading database schema...');
@@ -1385,13 +1389,13 @@ async function loadSchema() {
       inputEl.disabled = true;
       sendBtn.disabled = true;
       const e = await res.json().catch(() => ({}));
-      updateStatusBar('error', (e.detail || 'Failed to load schema') + '. <a onclick="toggleConfig()">Check Settings</a>');
+      updateStatusBar('error', e.detail || 'Failed to load schema. Check .env configuration.');
     }
   } catch (e) {
     schemaLoaded = false;
     inputEl.disabled = true;
     sendBtn.disabled = true;
-    updateStatusBar('error', 'Could not connect. <a onclick="toggleConfig()">Check Settings</a>');
+    updateStatusBar('error', 'Could not connect to server. Is it running?');
   }
 }
 
@@ -1520,12 +1524,7 @@ inputEl.disabled = true;
 sendBtn.disabled = true;
 
 (async function init() {
-  const config = await loadConfig();
-  if (config?.db?.connection) {
-    await loadSchema();
-  } else {
-    updateStatusBar('error', 'No database configured. <a onclick="toggleConfig()">Open Settings</a>');
-  }
+  await loadSchema();
   loadSessions();
 })();
 </script>

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Any
 from pathlib import Path
 
-from app.config import load_config, save_config, reset_config, Config, LLMConfig, DBConfig
+from app.config import load_config, set_db_connection, reset_db_connection, Config, LLMConfig, DBConfig
 from app.prompts import cached_schema, cached_db_type, clear_schema_cache
 from app.db import get_schema, get_db_type, run_query as execute_sql
 from app.agent import run as agent_run, run_stream as agent_run_stream
@@ -20,14 +20,13 @@ from app.history import (
 )
 
 
-class ConfigRequest(BaseModel):
-    llm: dict
-    db: dict
-
-
 class AgentRequest(BaseModel):
     message: str
     history: list[dict[str, Any]] = []
+
+
+class DBConfigRequest(BaseModel):
+    connection: str
 
 
 class AgentResponse(BaseModel):
@@ -88,28 +87,17 @@ def get_config():
     }
 
 
-@app.put("/config")
-def update_config(request: ConfigRequest):
-    config = Config(
-        llm=LLMConfig(
-            provider=request.llm.get("provider", ""),
-            model=request.llm.get("model", ""),
-            api_key=request.llm.get("api_key", ""),
-            base_url=request.llm.get("base_url", ""),
-            stream=request.llm.get("stream", True),
-        ),
-        db=DBConfig(connection=request.db.get("connection", "")),
-    )
-    save_config(config)
-    clear_schema_cache()
-    return {"message": "Configuration saved"}
+@app.put("/config/db")
+def update_db_config(request: DBConfigRequest):
+    """Update database connection (session-only override)."""
+    if not request.connection.strip():
+        reset_db_connection()
+        clear_schema_cache()
+        return {"message": "Database connection reset to .env default"}
 
-
-@app.post("/config/reset")
-def reset_config_endpoint():
-    reset_config()
+    set_db_connection(request.connection)
     clear_schema_cache()
-    return {"message": "Configuration reset"}
+    return {"message": "Database connection updated"}
 
 
 @app.get("/schema")

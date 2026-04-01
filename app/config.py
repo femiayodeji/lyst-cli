@@ -22,40 +22,35 @@ class Config:
     db: DBConfig
 
 
-# In-memory config storage (overrides environment defaults)
-_config_override: Config | None = None
+# In-memory database connection override (session-only, not persisted)
+_db_connection_override: str | None = None
 
 
-def _get_env_defaults() -> Config:
-    """Load default configuration from environment variables."""
+def load_config() -> Config:
+    """Load configuration from environment variables and any session overrides."""
     return Config(
         llm=LLMConfig(
-            provider=os.environ.get("LYST_LLM_PROVIDER", "anthropic"),
-            model=os.environ.get("LYST_LLM_MODEL", "anthropic/claude-sonnet-4-20250514"),
+            provider=os.environ.get("LYST_LLM_PROVIDER", "gemini"),
+            model=os.environ.get("LYST_LLM_MODEL", "gemini/gemini-2.0-flash"),
             api_key=os.environ.get("LYST_LLM_API_KEY", ""),
-            base_url=os.environ.get("LYST_LLM_BASE_URL", "https://api.anthropic.com"),
+            base_url=os.environ.get("LYST_LLM_BASE_URL", ""),
             stream=os.environ.get("LYST_STREAM", "true").lower() == "true",
         ),
         db=DBConfig(
-            connection=os.environ.get("LYST_DB_CONNECTION", ""),
+            connection=_db_connection_override or os.environ.get("LYST_DB_CONNECTION", ""),
         ),
     )
 
 
-def load_config() -> Config:
-    """Load config: returns in-memory override if set, otherwise env defaults."""
-    if _config_override is not None:
-        return _config_override
-    return _get_env_defaults()
+def set_db_connection(connection: str) -> None:
+    """Temporarily override database connection (session-only)."""
+    global _db_connection_override
+    _db_connection_override = connection if connection.strip() else None
 
 
-def save_config(config: Config) -> None:
-    """Save config to in-memory storage (session only, not persisted)."""
-    global _config_override
-    _config_override = config
+def reset_db_connection() -> None:
+    """Reset database connection to .env default."""
+    global _db_connection_override
+    _db_connection_override = None
 
-
-def reset_config() -> None:
-    global _config_override
-    _config_override = None
 
