@@ -97,18 +97,15 @@ All configuration is read from environment variables. The API is used for queryi
 
 | Method | Endpoint                         | Description                              |
 |--------|----------------------------------|------------------------------------------|
-| GET    | `/health`                        | Health check and configuration status    |
 | GET    | `/config`                        | View current configuration (from .env)   |
 | GET    | `/schema`                        | Get database schema info                 |
 | POST   | `/schema/load`                   | Load and cache database schema           |
-| POST   | `/agent (or `/agent/stream`)     | Send a message to the agent              |
-| POST   | `/execute-sql`                   | Execute raw SQL query                    |
+| POST   | `/agent/stream`                  | Send a message to the agent              |
 | GET    | `/sessions`                      | List all conversation sessions           |
 | POST   | `/sessions`                      | Create a new session                     |
 | GET    | `/sessions/{id}`                 | Get session details and messages         |
 | PUT    | `/sessions/{id}/activate`        | Switch to a session                      |
 | DELETE | `/sessions/{id}`                 | Delete a session                         |
-| GET    | `/history`                       | Get conversation history                 |
 | PUT    | `/history`                       | Save message history                     |
 | DELETE | `/history`                       | Clear conversation history               |
 

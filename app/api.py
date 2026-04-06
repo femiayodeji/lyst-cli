@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -11,10 +11,10 @@ from pathlib import Path
 
 from app.config import load_config, set_db_connection, reset_db_connection
 from app.prompts import cached_schema, cached_db_type, clear_schema_cache
-from app.db import get_schema, get_db_type, run_query as execute_sql
-from app.agent import run as agent_run, run_stream as agent_run_stream
+from app.db import get_schema, get_db_type, clear_engine_cache
+from app.agent import run_stream as agent_run_stream
 from app.history import (
-    load_history, save_history, clear_history, history_summary,
+    save_history, clear_history,
     list_sessions, get_session, create_session, delete_session,
     set_active_session, get_active_session
 )
@@ -27,26 +27,6 @@ class AgentRequest(BaseModel):
 
 class DBConfigRequest(BaseModel):
     connection: str
-
-
-class AgentResponse(BaseModel):
-    message: str
-    tool_calls: list[dict]
-    sql_results: list[dict]
-    history: list[dict]
-
-
-class ExecuteSqlRequest(BaseModel):
-    sql: str
-
-
-class ExecuteSqlResponse(BaseModel):
-    columns: list[Any]
-    rows: list[Any]
-    row_count: int
-    success: bool
-    error: str | None = None
-
 
 class SaveHistoryRequest(BaseModel):
     messages: list[dict[str, Any]]
@@ -91,10 +71,12 @@ def update_db_config(request: DBConfigRequest):
     if not request.connection.strip():
         reset_db_connection()
         clear_schema_cache()
+        clear_engine_cache()
         return {"message": "Database connection reset to .env default"}
 
     set_db_connection(request.connection)
     clear_schema_cache()
+    clear_engine_cache()
     return {"message": "Database connection updated"}
 
 
@@ -109,9 +91,10 @@ def get_database_schema():
 
 
 @app.post("/schema/load")
-def load_schema():
+def load_schema(force: bool = Query(False, description="Clear cache and reload from the database")):
     try:
-        clear_schema_cache()
+        if force:
+            clear_schema_cache()
         schema = cached_schema()
         db_type = cached_db_type()
         return {
@@ -124,28 +107,6 @@ def load_schema():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load schema: {e}")
 
-
-
-@app.post("/agent", response_model=AgentResponse)
-def agent_endpoint(request: AgentRequest):
-
-    _validate_config()
-    
-    try:
-        result = agent_run(
-            message=request.message,
-            history=request.history.copy(),
-        )
-        return AgentResponse(
-            message=result.message,
-            tool_calls=result.tool_calls,
-            sql_results=result.sql_results,
-            history=result.history,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/agent/stream")
 def agent_stream_endpoint(request: AgentRequest):
     _validate_config()
@@ -156,43 +117,25 @@ def agent_stream_endpoint(request: AgentRequest):
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
-
-
-@app.post("/execute-sql", response_model=ExecuteSqlResponse)
-def execute_sql_endpoint(request: ExecuteSqlRequest):
-    config = load_config()
-    if not config.db.connection:
-        raise HTTPException(status_code=400, detail="No database configured")
-    
-    try:
-        columns, rows = execute_sql(request.sql)
-        return ExecuteSqlResponse(
-            columns=columns,
-            rows=rows,
-            row_count=len(rows),
-            success=True,
-        )
-    except Exception as e:
-        return ExecuteSqlResponse(
-            columns=[],
-            rows=[],
-            row_count=0,
-            success=False,
-            error=str(e),
-        )
-
-
-
 @app.get("/sessions")
 def list_sessions_endpoint():
     sessions = list_sessions()
     active = get_active_session()
+
+    def _message_count(session: dict[str, Any]) -> int:
+        # Backward compatibility: accept either precomputed message_count
+        # or full messages list depending on caller/storage shape.
+        if "message_count" in session:
+            return int(session.get("message_count", 0) or 0)
+        messages = session.get("messages", [])
+        return len(messages) if isinstance(messages, list) else 0
+
     return {
         "sessions": [
             {
                 "id": s["id"],
                 "name": s["name"],
-                "message_count": len(s["messages"]),
+                "message_count": _message_count(s),
                 "created_at": s["created_at"],
                 "updated_at": s["updated_at"],
             }
@@ -242,12 +185,6 @@ def activate_session_endpoint(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
     set_active_session(session_id)
     return {"message": "Session activated"}
-
-
-@app.get("/history")
-def get_history_endpoint():
-    return {"messages": load_history(), "summary": history_summary()}
-
 
 @app.put("/history")
 def save_history_endpoint(request: SaveHistoryRequest):
