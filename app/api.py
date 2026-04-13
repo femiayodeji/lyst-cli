@@ -122,20 +122,12 @@ def list_sessions_endpoint():
     sessions = list_sessions()
     active = get_active_session()
 
-    def _message_count(session: dict[str, Any]) -> int:
-        # Backward compatibility: accept either precomputed message_count
-        # or full messages list depending on caller/storage shape.
-        if "message_count" in session:
-            return int(session.get("message_count", 0) or 0)
-        messages = session.get("messages", [])
-        return len(messages) if isinstance(messages, list) else 0
-
     return {
         "sessions": [
             {
                 "id": s["id"],
                 "name": s["name"],
-                "message_count": _message_count(s),
+                "message_count": s["message_count"],
                 "created_at": s["created_at"],
                 "updated_at": s["updated_at"],
             }

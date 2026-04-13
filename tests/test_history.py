@@ -1,7 +1,7 @@
 import unittest
 
 from app.history import (
-    load_history, save_history, clear_history, history_summary,
+    save_history, clear_history,
     create_session, get_session, list_sessions, delete_session,
     set_active_session, get_active_session, clear_all_sessions
 )
@@ -63,8 +63,8 @@ class TestHistory(unittest.TestCase):
             {"role": "assistant", "content": "Hi there!"},
         ]
         save_history(messages)
-        loaded = load_history()
-        self.assertEqual(loaded, messages)
+        session = get_active_session()
+        self.assertEqual(session.messages, messages)
 
     def test_clear_history(self):
         """Clear messages in active session."""
@@ -72,26 +72,8 @@ class TestHistory(unittest.TestCase):
         messages = [{"role": "user", "content": "Test"}]
         save_history(messages)
         clear_history()
-        self.assertEqual(load_history(), [])
-
-    def test_history_summary_no_session(self):
-        """History summary with no active session."""
-        summary = history_summary()
-        self.assertEqual(summary, "No active session.")
-
-    def test_history_summary_with_messages(self):
-        """History summary shows exchange count."""
-        create_session("My Session")
-        messages = [
-            {"role": "user", "content": "Q1"},
-            {"role": "assistant", "content": "A1"},
-            {"role": "user", "content": "Q2"},
-            {"role": "assistant", "content": "A2"},
-        ]
-        save_history(messages)
-        summary = history_summary()
-        self.assertIn("2 exchange", summary)
-        self.assertIn("My Session", summary)
+        session = get_active_session()
+        self.assertEqual(session.messages, [])
 
     def test_history_across_sessions(self):
         """Each session maintains its own history."""
@@ -102,11 +84,11 @@ class TestHistory(unittest.TestCase):
         save_history([{"role": "user", "content": "In session 2"}])
         
         # Check session 2 (active)
-        self.assertEqual(load_history()[0]["content"], "In session 2")
+        self.assertEqual(get_active_session().messages[0]["content"], "In session 2")
         
         # Switch to session 1
         set_active_session(s1.id)
-        self.assertEqual(load_history()[0]["content"], "In session 1")
+        self.assertEqual(get_active_session().messages[0]["content"], "In session 1")
 
 
 if __name__ == "__main__":

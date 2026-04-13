@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
   --bg: #fafafc;
@@ -127,7 +128,7 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .main-container {
-  max-width: 900px;
+  max-width: 1340px;
   margin: 0 auto;
   padding: 1.5rem;
   display: flex;
@@ -752,6 +753,186 @@ body {
 }
 
 .toast-close:hover { color: var(--text); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORKSPACE SPLIT LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.workspace {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace .chat-container {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESULTS PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.results-panel {
+  flex: 1.15;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.results-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  min-height: 46px;
+}
+
+.results-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.tab-btn:hover { color: var(--text-secondary); }
+
+.tab-btn.active { color: var(--indigo); }
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0.5rem;
+  right: 0.5rem;
+  height: 2px;
+  background: var(--indigo);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 300px;
+  max-height: calc(100vh - 290px);
+}
+
+.tab-pane {
+  display: none;
+  padding: 1.25rem;
+  height: 100%;
+}
+
+.tab-pane.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Visual tab */
+.chart-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0;
+  position: relative;
+  min-height: 300px;
+}
+
+.chart-wrapper canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.chart-type-selector {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.chart-type-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chart-type-btn:hover {
+  border-color: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.chart-type-btn.active {
+  background: var(--indigo-light);
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+/* Table tab */
+.tab-pane .results-block { margin: 0; flex: 1; }
+
+/* Query tab */
+.query-display { flex: 1; }
+.query-display .sql-block { margin: 0; }
+
+/* Empty state for results panel */
+.results-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem;
+  gap: 0.75rem;
+}
+
+.results-empty .icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+}
+
+.results-empty p {
+  font-size: 0.85rem;
+  max-width: 260px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .workspace {
+    flex-direction: column;
+  }
+  .results-panel {
+    max-height: 50vh;
+  }
+}
 </style>
 </head>
 <body>
@@ -778,10 +959,13 @@ body {
     <div class="panel-header">
       <div class="panel-title">// Database</div>
     </div>
-    <div class="config-grid">
+    <div class="config-grid" style="grid-template-columns: 1fr;">
       <div class="form-group">
         <label>Database Connection</label>
-        <input type="text" id="db-connection" placeholder="postgresql://user:pass@host/db">
+        <div style="position: relative;">
+          <input type="password" id="db-connection" placeholder="postgresql://user:pass@host/db" style="padding-right: 3rem; width: 100%;">
+          <button type="button" onclick="toggleDbVisibility()" id="db-toggle-btn" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0.4rem;">Show</button>
+        </div>
       </div>
     </div>
     <div class="btn-row">
@@ -801,6 +985,9 @@ body {
       <div class="empty-state">No sessions yet</div>
     </div>
   </div>
+
+  <!-- Workspace -->
+  <div class="workspace">
 
   <!-- Chat Container -->
   <div class="chat-container">
@@ -831,6 +1018,47 @@ body {
       </div>
     </div>
   </div>
+
+    <!-- Results Panel -->
+    <div class="results-panel">
+      <div class="results-panel-header">
+        <div class="results-tabs">
+          <button class="tab-btn active" data-tab="visual" onclick="switchTab('visual')">Visual</button>
+          <button class="tab-btn" data-tab="table" onclick="switchTab('table')">Table</button>
+          <button class="tab-btn" data-tab="query" onclick="switchTab('query')">Query</button>
+        </div>
+      </div>
+      <div class="tab-content">
+        <div id="tab-visual" class="tab-pane active">
+          <div class="results-empty" id="visual-empty">
+            <div class="icon">📈</div>
+            <p>Charts will appear here when you query your data</p>
+          </div>
+          <div id="chart-controls" style="display:none;">
+            <div class="chart-type-selector" id="chart-type-selector"></div>
+          </div>
+          <div class="chart-wrapper" id="chart-wrapper" style="display:none;">
+            <canvas id="results-chart"></canvas>
+          </div>
+        </div>
+        <div id="tab-table" class="tab-pane">
+          <div class="results-empty" id="table-empty">
+            <div class="icon">📋</div>
+            <p>Table results will appear here</p>
+          </div>
+          <div id="table-content"></div>
+        </div>
+        <div id="tab-query" class="tab-pane">
+          <div class="results-empty" id="query-empty">
+            <div class="icon">📝</div>
+            <p>SQL queries will appear here</p>
+          </div>
+          <div id="query-content"></div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- workspace -->
 
 </div>
 
@@ -1141,6 +1369,274 @@ function removeStreamingAssistantMessage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tabs & Results Panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+let currentChart = null;
+let currentChartType = null;
+let latestChartConfig = null;
+
+const CHART_COLORS = [
+  '#4f46e5', '#7c3aed', '#0d9488', '#059669',
+  '#d97706', '#e11d48', '#6366f1', '#8b5cf6',
+  '#14b8a6', '#f59e0b', '#ef4444', '#3b82f6'
+];
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === 'tab-' + tabName);
+  });
+}
+
+function updateResultsPanel(sql, results) {
+  if (sql) updateQueryTab(sql);
+  if (results) {
+    updateTableTab(results);
+    updateVisualTab(results);
+  }
+  autoSelectTab(sql, results);
+}
+
+function autoSelectTab(sql, results) {
+  if (results && results.success && results.columns && results.columns.length >= 2 && results.rows && results.rows.length > 0) {
+    const config = detectChartConfig(results.columns, results.rows);
+    if (config) {
+      switchTab('visual');
+      return;
+    }
+    switchTab('table');
+    return;
+  }
+  if (results && results.success && results.columns && results.columns.length > 0) {
+    switchTab('table');
+    return;
+  }
+  if (sql) {
+    switchTab('query');
+    return;
+  }
+}
+
+function updateQueryTab(sql) {
+  const container = document.getElementById('query-content');
+  const empty = document.getElementById('query-empty');
+  if (!sql) return;
+  empty.style.display = 'none';
+  container.innerHTML = `
+    <div class="query-display">
+      <div class="sql-block">
+        <div class="sql-header">📝 SQL Query</div>
+        <div class="sql-code">${esc(sql)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function updateTableTab(results) {
+  const container = document.getElementById('table-content');
+  const empty = document.getElementById('table-empty');
+  if (!results) return;
+  empty.style.display = 'none';
+
+  if (results.success && results.columns && results.columns.length > 0) {
+    container.innerHTML = `
+      <div class="results-block">
+        <div class="results-header">
+          <span>📊 Results</span>
+          <span>${results.row_count} row(s)</span>
+        </div>
+        <div class="results-overflow">
+          <table class="results-table">
+            <thead><tr>${results.columns.map(c => `<th>${esc(String(c))}</th>`).join('')}</tr></thead>
+            <tbody>${results.rows.map(row => `<tr>${row.map(cell => `<td>${esc(String(cell ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } else if (results && !results.success) {
+    container.innerHTML = `
+      <div class="results-block">
+        <div class="results-header">📊 Results</div>
+        <div class="results-error">Error: ${esc(results.error || 'Query failed')}</div>
+      </div>
+    `;
+  }
+}
+
+function updateVisualTab(results) {
+  const wrapper = document.getElementById('chart-wrapper');
+  const controls = document.getElementById('chart-controls');
+  const empty = document.getElementById('visual-empty');
+
+  if (!results || !results.success || !results.columns || results.columns.length < 2 || results.rows.length === 0) {
+    return;
+  }
+
+  const config = detectChartConfig(results.columns, results.rows);
+  if (!config) {
+    empty.style.display = 'none';
+    wrapper.style.display = 'flex';
+    controls.style.display = 'none';
+    wrapper.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Unable to visualize this data as a chart</p>';
+    return;
+  }
+
+  empty.style.display = 'none';
+  controls.style.display = 'block';
+  wrapper.style.display = 'flex';
+
+  latestChartConfig = { ...config, columns: results.columns, rows: results.rows };
+
+  const types = ['bar', 'line', 'pie', 'doughnut'];
+  const selector = document.getElementById('chart-type-selector');
+  selector.innerHTML = types.map(t =>
+    `<button class="chart-type-btn ${t === config.type ? 'active' : ''}" onclick="changeChartType('${t}')">${t.charAt(0).toUpperCase() + t.slice(1)}</button>`
+  ).join('');
+
+  renderChart(config.type);
+}
+
+function detectChartConfig(columns, rows) {
+  if (!columns || !rows || rows.length === 0) return null;
+
+  const colTypes = columns.map((col, i) => {
+    const values = rows.map(r => r[i]).filter(v => v !== null && v !== undefined && v !== '');
+    const numericCount = values.filter(v => !isNaN(Number(v)) && String(v).trim() !== '').length;
+    const isNumeric = values.length > 0 && numericCount > values.length * 0.7;
+    return { name: String(col), index: i, isNumeric };
+  });
+
+  const categoricalCols = colTypes.filter(c => !c.isNumeric);
+  const numericCols = colTypes.filter(c => c.isNumeric);
+
+  if (numericCols.length === 0) return null;
+
+  if (categoricalCols.length >= 1 && numericCols.length >= 1) {
+    const type = rows.length <= 8 && numericCols.length === 1 ? 'pie' : 'bar';
+    return {
+      type,
+      labelCol: categoricalCols[0].index,
+      dataCols: numericCols.map(c => c.index),
+      title: numericCols.map(c => c.name).join(', ') + ' by ' + categoricalCols[0].name
+    };
+  }
+
+  if (numericCols.length >= 2) {
+    return {
+      type: 'bar',
+      labelCol: 0,
+      dataCols: numericCols.filter(c => c.index !== 0).map(c => c.index),
+      title: columns.slice(1).join(', ')
+    };
+  }
+
+  return {
+    type: 'bar',
+    labelCol: 0,
+    dataCols: [numericCols[0].index],
+    title: numericCols[0].name
+  };
+}
+
+function changeChartType(type) {
+  if (!latestChartConfig) return;
+  document.querySelectorAll('.chart-type-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === type);
+  });
+  renderChart(type);
+}
+
+function renderChart(type) {
+  if (!latestChartConfig) return;
+
+  const { labelCol, dataCols, columns, rows, title } = latestChartConfig;
+  currentChartType = type;
+
+  if (currentChart) {
+    currentChart.destroy();
+    currentChart = null;
+  }
+
+  const wrapper = document.getElementById('chart-wrapper');
+  wrapper.innerHTML = '<canvas id="results-chart"></canvas>';
+  const canvas = document.getElementById('results-chart');
+  const ctx = canvas.getContext('2d');
+
+  const labels = rows.map(r => String(r[labelCol] ?? ''));
+  const isPie = type === 'pie' || type === 'doughnut';
+
+  if (isPie) {
+    const values = rows.map(r => Number(r[dataCols[0]]) || 0);
+    currentChart = new Chart(ctx, {
+      type,
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: CHART_COLORS.slice(0, values.length),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { family: "'Outfit', sans-serif", size: 12 }, padding: 16 } },
+          title: { display: !!title, text: title, font: { family: "'Outfit', sans-serif", size: 14, weight: 600 }, padding: { bottom: 16 } }
+        }
+      }
+    });
+  } else {
+    const datasets = dataCols.map((colIdx, i) => ({
+      label: String(columns[colIdx]),
+      data: rows.map(r => Number(r[colIdx]) || 0),
+      backgroundColor: type === 'bar' ? CHART_COLORS[i % CHART_COLORS.length] + 'cc' : 'transparent',
+      borderColor: CHART_COLORS[i % CHART_COLORS.length],
+      borderWidth: 2,
+      tension: 0.3,
+      pointRadius: type === 'line' ? 4 : 0,
+      pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length]
+    }));
+
+    currentChart = new Chart(ctx, {
+      type,
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: dataCols.length > 1, position: 'bottom', labels: { font: { family: "'Outfit', sans-serif", size: 12 }, padding: 16 } },
+          title: { display: !!title, text: title, font: { family: "'Outfit', sans-serif", size: 14, weight: 600 }, padding: { bottom: 16 } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { family: "'Space Mono', monospace", size: 11 }, maxRotation: 45 } },
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: "'Space Mono', monospace", size: 11 } } }
+        }
+      }
+    });
+  }
+}
+
+function clearResultsPanel() {
+  document.getElementById('visual-empty').style.display = '';
+  document.getElementById('chart-controls').style.display = 'none';
+  document.getElementById('chart-wrapper').style.display = 'none';
+  document.getElementById('chart-wrapper').innerHTML = '<canvas id="results-chart"></canvas>';
+  if (currentChart) { currentChart.destroy(); currentChart = null; }
+  latestChartConfig = null;
+
+  document.getElementById('table-empty').style.display = '';
+  document.getElementById('table-content').innerHTML = '';
+
+  document.getElementById('query-empty').style.display = '';
+  document.getElementById('query-content').innerHTML = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // API Calls
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1217,11 +1713,16 @@ async function sendMessage() {
         case 'sql': {
           const payload = eventPayload(data);
           currentSql = typeof payload === 'string' ? payload : null;
+          if (currentSql) updateQueryTab(currentSql);
           addStatusMessage('Executing query...');
           break;
         }
         case 'result':
           currentResults = eventPayload(data);
+          if (currentResults) {
+            updateTableTab(currentResults);
+            updateVisualTab(currentResults);
+          }
           break;
         case 'message_chunk': {
           const payload = eventPayload(data);
@@ -1252,8 +1753,11 @@ async function sendMessage() {
         case 'done':
           removeStatusMessage();
           removeStreamingAssistantMessage();
-          if (messageContent || currentSql || currentResults) {
-            addAssistantMessage(messageContent, currentSql, currentResults);
+          if (currentSql || currentResults) {
+            updateResultsPanel(currentSql, currentResults);
+          }
+          if (messageContent) {
+            addAssistantMessage(messageContent);
           }
           break;
       }
@@ -1279,6 +1783,7 @@ function clearChat() {
     </div>
   `;
   updateMsgCount();
+  clearResultsPanel();
   fetch('/history', { method: 'DELETE' }).catch(() => {});
 }
 
@@ -1294,6 +1799,18 @@ async function loadDbConfig() {
     const d = await res.json();
     document.getElementById('db-connection').value = d.db?.connection || '';
   } catch (e) {}
+}
+
+function toggleDbVisibility() {
+  const input = document.getElementById('db-connection');
+  const btn = document.getElementById('db-toggle-btn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    btn.textContent = 'Show';
+  }
 }
 
 async function saveDbConfig() {
@@ -1320,6 +1837,13 @@ async function saveDbConfig() {
     status.textContent = connection ? 'Saved! Loading schema...' : 'Reset to .env default. Loading schema...';
     status.className = 'status-text success';
     await loadSchema();
+    if (schemaLoaded) {
+      status.textContent = 'Connected';
+      status.className = 'status-text success';
+    } else {
+      status.textContent = 'Schema load failed';
+      status.className = 'status-text error';
+    }
   } catch (e) {
     status.textContent = 'Connection error';
     status.className = 'status-text error';

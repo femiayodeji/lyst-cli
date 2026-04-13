@@ -79,11 +79,6 @@ def delete_session(session_id: str) -> bool:
     return False
 
 
-def load_history() -> list[dict]:
-    session = get_active_session()
-    return session.messages if session else []
-
-
 def save_history(messages: list[dict]) -> None:
     session = get_or_create_active_session()
     session.messages = messages
@@ -102,11 +97,3 @@ def clear_all_sessions() -> None:
     _sessions = {}
     _active_session_id = None
     _session_counter = 0
-
-
-def history_summary() -> str:
-    session = get_active_session()
-    if not session or not session.messages:
-        return "No active session."
-    exchanges = len(session.messages) // 2
-    return f"{exchanges} exchange(s) in session '{session.name}'"

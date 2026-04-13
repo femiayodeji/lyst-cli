@@ -45,6 +45,12 @@ Powered by LLMs (via [LiteLLM](https://github.com/BerriAI/litellm)) and [SQLAlch
 
 The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
 
+### Docker
+
+```bash
+docker compose up --build
+```
+
 ## Configuration
 
 All configuration is done via environment variables in your `.env` file:

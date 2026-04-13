@@ -1,6 +1,5 @@
 import os
 import json
-from dataclasses import dataclass
 from typing import Any, Generator
 
 from litellm import completion
@@ -9,14 +8,6 @@ from litellm.exceptions import RateLimitError, APIConnectionError, APIError
 from app.config import load_config
 from app.tools import TOOLS, execute_tool
 from app.prompts import build_agent_prompt
-
-
-@dataclass
-class AgentResponse:
-    message: str
-    tool_calls: list[dict]
-    sql_results: list[dict]
-    history: list[dict]
 
 
 def _get_llm_config() -> tuple[str, str, str | None]:
@@ -85,97 +76,6 @@ def _process_tool_calls(assistant_message: Any) -> list[dict]:
         }
         for tc in assistant_message.tool_calls
     ]
-
-
-def run(message: str, history: list[dict] | None = None, max_iterations: int = 5) -> AgentResponse:
-    history = (history or []).copy()
-    history.append({"role": "user", "content": message})
-    
-    system_prompt = build_agent_prompt()
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}] + history
-    
-    tool_calls_made: list[dict[str, Any]] = []
-    sql_results: list[dict[str, Any]] = []
-    iterations = 0
-    force_execute_sql = _looks_like_data_request(message)
-    
-    while iterations < max_iterations:
-        llm_tools = TOOLS
-        tool_choice = None
-        if force_execute_sql and iterations == 0:
-            llm_tools = [TOOLS[0]]
-            tool_choice = {"type": "function", "function": {"name": "execute_sql"}}
-        response = _call_llm(messages, tools=llm_tools, tool_choice=tool_choice)
-        assistant_message = response.choices[0].message
-        
-        # Check for tool calls
-        tool_infos = _process_tool_calls(assistant_message)
-        
-        if not tool_infos:
-            # No tools needed - we have the final response
-            final_message = assistant_message.content or ""
-            history.append({"role": "assistant", "content": final_message})
-            
-            return AgentResponse(
-                message=final_message,
-                tool_calls=tool_calls_made,
-                sql_results=sql_results,
-                history=history
-            )
-        
-        # Process tool calls
-        # Add assistant message with tool_calls to messages
-        messages.append({
-            "role": "assistant",
-            "content": assistant_message.content or "",
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments
-                    }
-                }
-                for tc in assistant_message.tool_calls
-            ]
-        })
-        
-        for tc_info in tool_infos:
-            # Execute the tool
-            result = execute_tool(tc_info["name"], tc_info["arguments"])
-            
-            tool_calls_made.append({
-                "tool": tc_info["name"],
-                "arguments": tc_info["arguments"],
-                "result": result
-            })
-            
-            # Track SQL results
-            if tc_info["name"] == "execute_sql" and result.get("success"):
-                sql_results.append(result["result"])
-            
-            # Add tool result to messages
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc_info["id"],
-                "content": json.dumps(result, default=str)
-            })
-        
-        iterations += 1
-    
-    # Hit max iterations
-    history.append({
-        "role": "assistant", 
-        "content": "I've made several attempts but couldn't fully answer. Please try rephrasing."
-    })
-    
-    return AgentResponse(
-        message="I've reached the maximum number of tool calls. Please try a simpler question.",
-        tool_calls=tool_calls_made,
-        sql_results=sql_results,
-        history=history
-    )
 
 
 def run_stream(message: str, history: list[dict] | None = None, max_iterations: int = 5) -> Generator[str, None, None]:
