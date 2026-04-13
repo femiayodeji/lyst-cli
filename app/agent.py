@@ -61,6 +61,18 @@ def _looks_like_data_request(message: str) -> bool:
         "last year",
         "users",
         "subscriptions",
+        "visual",
+        "chart",
+        "graph",
+        "plot",
+        "pie",
+        "bar",
+        "breakdown",
+        "distribution",
+        "compare",
+        "trend",
+        "top",
+        "bottom",
     ]
     return any(token in text for token in indicators)
 
@@ -148,7 +160,6 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
             tool_infos = _process_tool_calls(assistant_message)
             
             if not tool_infos:
-                # Final response: stream tokens from LLM so the UI updates live.
                 yield emit("status", "Generating response...")
 
                 chunks: list[str] = []
@@ -169,7 +180,6 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
                 yield emit("done", {})
                 return
             
-            # Process tool calls
             messages.append({
                 "role": "assistant",
                 "content": assistant_message.content or "",
@@ -194,7 +204,6 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
                     yield emit("sql", sql)
                     yield emit("status", "Executing query...")
                 
-                # Execute tool
                 result = execute_tool(tc_info["name"], tc_info["arguments"])
                 
                 tool_calls_made.append({
@@ -203,7 +212,6 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
                     "result": result
                 })
                 
-                # Emit results
                 if tc_info["name"] == "execute_sql":
                     if result.get("success"):
                         sql_result = result["result"]
@@ -232,7 +240,6 @@ def run_stream(message: str, history: list[dict] | None = None, max_iterations: 
             iterations += 1
             yield emit("status", "Analyzing results...")
         
-        # Max iterations
         yield emit("message_complete", "Reached maximum iterations. Please try a simpler question.")
         yield emit("done", {})
         
