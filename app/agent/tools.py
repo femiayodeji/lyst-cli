@@ -11,6 +11,35 @@ _DANGEROUS_SQL = re.compile(
     re.IGNORECASE,
 )
 
+_TABLE_REF = re.compile(
+    r"\b(?:FROM|JOIN|INTO|UPDATE|TABLE)\s+([\w.\"]+)",
+    re.IGNORECASE,
+)
+
+
+def _extract_schema_hint(sql: str, state: AppState) -> str:
+    """Return the cached schema excerpt for tables referenced in *sql*."""
+    from app.db.schema import cached_schema
+    matches = _TABLE_REF.findall(sql)
+    if not matches:
+        return ""
+    table_names = {m.strip('"').lower() for m in matches}
+    schema_text = cached_schema(state)
+    relevant: list[str] = []
+    current_block: list[str] = []
+    current_table: str | None = None
+    for line in schema_text.splitlines():
+        if line.startswith("Table: "):
+            if current_table and current_table in table_names:
+                relevant.extend(current_block)
+            current_table = line.split("Table: ", 1)[1].strip().lower()
+            current_block = [line]
+        elif current_table is not None:
+            current_block.append(line)
+    if current_table and current_table in table_names:
+        relevant.extend(current_block)
+    return "\n".join(relevant).strip()
+
 
 def tool(name: str, description: str, parameters: dict):
     def decorator(fn: Callable) -> Callable:
@@ -34,7 +63,13 @@ def execute_tool(name: str, arguments: dict[str, Any], state: AppState) -> dict[
     try:
         return handler(state=state, **arguments)
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        error_msg = str(e)
+        if name == "execute_sql":
+            sql = arguments.get("sql", "")
+            hint = _extract_schema_hint(sql, state)
+            if hint:
+                error_msg += f"\n\nRelevant schema for the tables referenced in your query:\n{hint}"
+        return {"success": False, "error": error_msg}
 
 
 def validate_sql(sql: str) -> str | None:

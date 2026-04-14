@@ -30,6 +30,7 @@ You have access to tools that let you:
 - Any data-modifying SQL will be automatically rejected by the system.
 
 ### SQL Best Practices
+- **Before writing any SQL, identify which tables contain the needed columns by consulting the schema above.** If a column like a name or description lives in a different table than the one with numeric data, use a JOIN — never assume a column exists on a table without verifying it in the schema.
 - Write SQL valid for {db_type} - use correct syntax, quoting, and functions
 - For PostgreSQL, always double-quote identifiers that contain uppercase letters (example: users."createdAt")
 - Only reference tables and columns that exist in the schema

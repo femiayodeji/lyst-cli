@@ -105,24 +105,62 @@ def run_agent(
         for iteration in range(max_iterations):
             yield {"type": "status", "data": "Thinking..."}
 
-            response = _call_llm(state, messages, tools=TOOLS)
-            assistant_message = response.choices[0].message
+            stream_response = _call_llm(state, messages, tools=TOOLS, stream=True)
 
-            tool_infos = _process_tool_calls(assistant_message)
+            chunks: list[str] = []
+            tool_calls_by_index: dict[int, dict] = {}
+            generating = False
 
-            # No tool calls → stream the final text response
-            if not tool_infos:
-                yield {"type": "status", "data": "Generating response..."}
+            for chunk in stream_response:
+                choice = chunk.choices[0]
+                delta = getattr(choice, "delta", None)
+                if not delta:
+                    continue
 
-                chunks: list[str] = []
-                stream_response = _call_llm(state, messages, stream=True)
-                for chunk in stream_response:
-                    text_chunk = _extract_chunk_text(chunk)
-                    if text_chunk:
-                        chunks.append(text_chunk)
+                tc_list = getattr(delta, "tool_calls", None)
+                if tc_list:
+                    for tc_delta in tc_list:
+                        idx = tc_delta.index
+                        if idx not in tool_calls_by_index:
+                            tool_calls_by_index[idx] = {"id": "", "name": "", "args_parts": []}
+                        entry = tool_calls_by_index[idx]
+                        if tc_delta.id:
+                            entry["id"] = tc_delta.id
+                        if tc_delta.function:
+                            if tc_delta.function.name:
+                                entry["name"] = tc_delta.function.name
+                            if tc_delta.function.arguments:
+                                entry["args_parts"].append(tc_delta.function.arguments)
+
+                text_chunk = _extract_chunk_text(chunk)
+                if text_chunk:
+                    chunks.append(text_chunk)
+                    if not tool_calls_by_index:
+                        if not generating:
+                            yield {"type": "status", "data": "Generating response..."}
+                            generating = True
                         yield {"type": "message_chunk", "data": text_chunk}
 
-                final_message = "".join(chunks).strip() or (assistant_message.content or "")
+            # Build tool_infos from accumulated stream deltas
+            tool_infos: list[dict] = []
+            raw_tool_calls: list[dict] = []
+            for idx in sorted(tool_calls_by_index):
+                entry = tool_calls_by_index[idx]
+                args_str = "".join(entry["args_parts"])
+                tool_infos.append({
+                    "id": entry["id"],
+                    "name": entry["name"],
+                    "arguments": json.loads(args_str) if args_str else {},
+                })
+                raw_tool_calls.append({
+                    "id": entry["id"],
+                    "type": "function",
+                    "function": {"name": entry["name"], "arguments": args_str},
+                })
+
+            # No tool calls → finalize text response
+            if not tool_infos:
+                final_message = "".join(chunks).strip()
                 history.append({"role": "assistant", "content": final_message})
 
                 yield {"type": "message_complete", "data": final_message}
@@ -135,15 +173,8 @@ def run_agent(
             # Append assistant message with tool calls
             messages.append({
                 "role": "assistant",
-                "content": assistant_message.content or "",
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                    }
-                    for tc in assistant_message.tool_calls
-                ],
+                "content": "".join(chunks),
+                "tool_calls": raw_tool_calls,
             })
 
             # Execute each tool call
