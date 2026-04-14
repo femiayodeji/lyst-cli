@@ -7,3 +7,4 @@ services:
       - .env
     volumes:
       - ./app/static:/app/app/static
+      - ./app:/app/app
