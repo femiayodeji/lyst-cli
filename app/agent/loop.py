@@ -20,7 +20,10 @@ def _get_llm_config(state: AppState) -> tuple[str, str, str | None]:
     api_key = llm.api_key or os.environ.get("LYST_LLM_API_KEY")
     if not api_key:
         raise ValueError("No API key configured.")
-    return llm.model, api_key, llm.base_url or None
+    model = llm.model
+    if llm.provider and not model.startswith(f"{llm.provider}/"):
+        model = f"{llm.provider}/{model}"
+    return model, api_key, llm.base_url or None
 
 
 def _call_llm(
