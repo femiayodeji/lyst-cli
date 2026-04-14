@@ -22,10 +22,7 @@ class Config:
     db: DBConfig
 
 
-_db_connection_override: str | None = None
-
-
-def load_config() -> Config:
+def load_config(db_connection_override: str | None = None) -> Config:
     return Config(
         llm=LLMConfig(
             provider=os.environ.get("LYST_LLM_PROVIDER", "gemini"),
@@ -35,18 +32,8 @@ def load_config() -> Config:
             stream=os.environ.get("LYST_STREAM", "true").lower() == "true",
         ),
         db=DBConfig(
-            connection=_db_connection_override or os.environ.get("LYST_DB_CONNECTION", ""),
+            connection=db_connection_override or os.environ.get("LYST_DB_CONNECTION", ""),
         ),
     )
-
-
-def set_db_connection(connection: str) -> None:
-    global _db_connection_override
-    _db_connection_override = connection if connection.strip() else None
-
-
-def reset_db_connection() -> None:
-    global _db_connection_override
-    _db_connection_override = None
 
 

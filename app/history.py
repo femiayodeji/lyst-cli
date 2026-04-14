@@ -1,58 +1,38 @@
 from datetime import datetime
-from dataclasses import dataclass, field
 
-@dataclass
-class Session:
-    id: str
-    name: str
-    messages: list[dict] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+from app.state import AppState, Session
 
 
-_sessions: dict[str, Session] = {}
-_active_session_id: str | None = None
-_session_counter: int = 0
-
-
-def _generate_session_id() -> str:
-    global _session_counter
-    _session_counter += 1
-    return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_session_counter}"
-
-
-def create_session(name: str | None = None) -> Session:
-    global _active_session_id
-    session_id = _generate_session_id()
-    session_name = name or f"Session {len(_sessions) + 1}"
+def create_session(state: AppState, name: str | None = None) -> Session:
+    session_id = state.next_session_id()
+    session_name = name or f"Session {len(state.sessions) + 1}"
     session = Session(id=session_id, name=session_name)
-    _sessions[session_id] = session
-    _active_session_id = session_id
+    state.sessions[session_id] = session
+    state.active_session_id = session_id
     return session
 
 
-def get_active_session() -> Session | None:
-    if _active_session_id is None:
+def get_active_session(state: AppState) -> Session | None:
+    if state.active_session_id is None:
         return None
-    return _sessions.get(_active_session_id)
+    return state.sessions.get(state.active_session_id)
 
 
-def get_or_create_active_session() -> Session:
-    session = get_active_session()
+def get_or_create_active_session(state: AppState) -> Session:
+    session = get_active_session(state)
     if session is None:
-        session = create_session()
+        session = create_session(state)
     return session
 
 
-def set_active_session(session_id: str) -> Session | None:
-    global _active_session_id
-    if session_id in _sessions:
-        _active_session_id = session_id
-        return _sessions[session_id]
+def set_active_session(state: AppState, session_id: str) -> Session | None:
+    if session_id in state.sessions:
+        state.active_session_id = session_id
+        return state.sessions[session_id]
     return None
 
 
-def list_sessions() -> list[dict]:
+def list_sessions(state: AppState) -> list[dict]:
     return [
         {
             "id": s.id,
@@ -61,39 +41,37 @@ def list_sessions() -> list[dict]:
             "created_at": s.created_at,
             "updated_at": s.updated_at,
         }
-        for s in sorted(_sessions.values(), key=lambda x: x.created_at, reverse=True)
+        for s in sorted(state.sessions.values(), key=lambda x: x.created_at, reverse=True)
     ]
 
 
-def get_session(session_id: str) -> Session | None:
-    return _sessions.get(session_id)
+def get_session(state: AppState, session_id: str) -> Session | None:
+    return state.sessions.get(session_id)
 
 
-def delete_session(session_id: str) -> bool:
-    global _active_session_id
-    if session_id in _sessions:
-        del _sessions[session_id]
-        if _active_session_id == session_id:
-            _active_session_id = None
+def delete_session(state: AppState, session_id: str) -> bool:
+    if session_id in state.sessions:
+        del state.sessions[session_id]
+        if state.active_session_id == session_id:
+            state.active_session_id = None
         return True
     return False
 
 
-def save_history(messages: list[dict]) -> None:
-    session = get_or_create_active_session()
+def save_history(state: AppState, messages: list[dict]) -> None:
+    session = get_or_create_active_session(state)
     session.messages = messages
     session.updated_at = datetime.now().isoformat()
 
 
-def clear_history() -> None:
-    session = get_active_session()
+def clear_history(state: AppState) -> None:
+    session = get_active_session(state)
     if session:
         session.messages = []
         session.updated_at = datetime.now().isoformat()
 
 
-def clear_all_sessions() -> None:
-    global _sessions, _active_session_id, _session_counter
-    _sessions = {}
-    _active_session_id = None
-    _session_counter = 0
+def clear_all_sessions(state: AppState) -> None:
+    state.sessions.clear()
+    state.active_session_id = None
+    state._session_counter = 0

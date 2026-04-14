@@ -4,37 +4,32 @@ from collections import defaultdict
 
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.engine import Engine
+
 from app.config import load_config
+from app.state import AppState
 
 _log = logging.getLogger(__name__)
 
-# Engine cache keyed by connection string — avoids re-creating the pool on every call.
-_engines: dict[str, Engine] = {}
 
-
-def get_engine() -> Engine:
-    config = load_config()
+def get_engine(state: AppState) -> Engine:
+    config = load_config(state.db_connection_override)
     conn_str = config.db.connection
     if not conn_str:
-        raise ValueError("No database configured. Run: lyst config set --connection <connection-string>")
-    if conn_str not in _engines:
+        raise ValueError("No database configured. Set LYST_DB_CONNECTION or use the /config/db endpoint.")
+    if conn_str not in state.engines:
         connect_args: dict = {}
         lower = conn_str.lower()
         if lower.startswith("postgresql"):
             connect_args = {"connect_timeout": 10}
         elif lower.startswith("mysql"):
             connect_args = {"connect_timeout": 10}
-        _engines[conn_str] = create_engine(conn_str, connect_args=connect_args)
+        state.engines[conn_str] = create_engine(conn_str, connect_args=connect_args)
         _log.debug("Created new engine for %s…", conn_str[:30])
-    return _engines[conn_str]
+    return state.engines[conn_str]
 
 
-def clear_engine_cache() -> None:
-    _engines.clear()
-
-
-def get_db_type() -> str:
-    return get_engine().dialect.name
+def get_db_type(state: AppState) -> str:
+    return get_engine(state).dialect.name
 
 
 def _build_schema(col_rows, fk_rows) -> str:
@@ -42,7 +37,6 @@ def _build_schema(col_rows, fk_rows) -> str:
     for row in col_rows:
         tables[row.table_name].append((row.column_name, str(row.data_type)))
 
-    # Group FK columns by (table_name, constraint_name)
     fks: dict[str, dict[str, dict]] = defaultdict(dict)
     for row in fk_rows:
         entry = fks[row.table_name].setdefault(
@@ -66,7 +60,6 @@ def _build_schema(col_rows, fk_rows) -> str:
 
 
 def _schema_postgresql(engine: Engine) -> str:
-    # pg_catalog is faster than information_schema for this use-case.
     col_sql = text("""
         SELECT cls.relname AS table_name,
                a.attname  AS column_name,
@@ -123,7 +116,6 @@ def _schema_mysql(engine: Engine) -> str:
 
 
 def _schema_inspector(engine: Engine) -> str:
-    """Fallback for SQLite and other dialects."""
     inspector = inspect(engine)
     lines: list[str] = []
     for table_name in inspector.get_table_names():
@@ -138,8 +130,8 @@ def _schema_inspector(engine: Engine) -> str:
     return "\n".join(lines)
 
 
-def get_schema() -> str:
-    engine = get_engine()
+def get_schema(state: AppState) -> str:
+    engine = get_engine(state)
     dialect = engine.dialect.name
     t0 = time.monotonic()
     if dialect == "postgresql":
@@ -152,8 +144,8 @@ def get_schema() -> str:
     return result
 
 
-def run_query(sql: str) -> tuple[list, list]:
-    engine = get_engine()
+def run_query(sql: str, state: AppState) -> tuple[list, list]:
+    engine = get_engine(state)
     with engine.connect() as conn:
         result = conn.execute(text(sql))
         columns = list(result.keys())
